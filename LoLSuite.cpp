@@ -298,51 +298,6 @@ void manageGame(const std::wstring& game, bool restore) {
 
 		Run(L"steam://rungameid/2437170", L"", false);
 	}
-	else if (game == L"minecraft")
-	{
-		PowerShell({
-			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-			L"winget source update"
-			});
-		const std::vector<std::wstring> mcprocesses = { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" };
-		for (const auto& process : mcprocesses) ExitThread(process);
-		const size_t bufferSize = MAX_PATH + 1;
-		char appdataBuffer[bufferSize];
-		size_t retrievedSize = 0;
-		errno_t err = getenv_s(&retrievedSize, appdataBuffer, bufferSize, "APPDATA");
-		std::filesystem::path configPath = appdataBuffer; configPath /= ".minecraft";
-		std::filesystem::remove_all(configPath);
-		configPath /= "launcher_profiles.json";
-		std::vector<std::wstring> commands_minecraft;
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24" }) commands_minecraft.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
-		commands_minecraft.insert(commands_minecraft.end(), { L"winget uninstall Mojang.MinecraftLauncher --purge -h", L"winget install Oracle.JDK.24 --accept-package-agreements", L"winget install Mojang.MinecraftLauncher --accept-package-agreements" });
-		PowerShell(commands_minecraft);
-		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-		while (!std::filesystem::exists(configPath)) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
-		for (const auto& process : mcprocesses) ExitThread(process);
-		std::wifstream configFile(configPath);
-		configFile.imbue(std::locale("en_US.UTF-8"));
-		if (configFile.is_open()) {
-			std::wstring configData((std::istreambuf_iterator<wchar_t>(configFile)), std::istreambuf_iterator<wchar_t>());
-			configFile.close(); std::wstringstream configStream(configData);
-			std::wstring updatedConfigData, line;
-			while (std::getline(configStream, line)) { if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos) { updatedConfigData += line + L"\n"; } }
-			std::vector<std::wstring> types = { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" };
-			std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-24\\\\bin\\\\javaw.exe";
-			for (const auto& type : types) {
-				if (size_t typePos = updatedConfigData.find(type);
-					typePos != std::wstring::npos) {
-					if (size_t lineStart = updatedConfigData.rfind(L'\n', typePos); lineStart != std::wstring::npos) { updatedConfigData.insert(lineStart + 1, L" \"skipJreVersionCheck\" : true,\n"); }
-					size_t javaDirPos = typePos;
-					for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i) { javaDirPos = updatedConfigData.rfind(L'\n', javaDirPos - 1); } if (javaDirPos != std::wstring::npos) { updatedConfigData.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n"); }
-				}
-			}
-			std::wofstream outFile(configPath);
-			outFile.imbue(std::locale("en_US.UTF-8"));
-			outFile << updatedConfigData; outFile.close();
-		}
-		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-	}
 }
 
 void manageTasks(const std::wstring& task)
@@ -350,7 +305,6 @@ void manageTasks(const std::wstring& task)
 	if (task == L"cafe")
 	{
 		net(L"W32Time", false, true);
-
 		PowerShell({
 			L"w32tm /resync",
 			L"powercfg -restoredefaultschemes",
@@ -364,34 +318,29 @@ void manageTasks(const std::wstring& task)
 			L"winget upgrade --all --accept-package-agreements --accept-source-agreements"
 			});
 
+		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
+		for (auto& s : services) net(s, false);
+
+		WCHAR winDir[MAX_PATH];
+		if (GetWindowsDirectory(winDir, MAX_PATH)) {
+			std::filesystem::remove_all(std::filesystem::path(winDir) / L"SoftwareDistribution");
+		}
+
+		for (auto& s : services) net(s, true);
+
 		WCHAR localAppData[MAX_PATH];
 		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
 			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
-			for (const auto& pattern : { L"thumbcache_*.db", L"iconcache_*.db", L"ExplorerStartupLog*.etl" }) {
+			for (auto& pattern : { L"thumbcache_*.db", L"iconcache_*.db", L"ExplorerStartupLog*.etl" }) {
 				WIN32_FIND_DATA data;
-				std::wstring searchPath = (explorerPath / pattern).wstring();
-				HANDLE hFind = FindFirstFile(searchPath.c_str(), &data);
+				HANDLE hFind = FindFirstFile((explorerPath / pattern).c_str(), &data);
 				if (hFind != INVALID_HANDLE_VALUE) {
-					do {
-						std::filesystem::remove(explorerPath / data.cFileName);
-					} while (FindNextFile(hFind, &data));
+					do std::filesystem::remove(explorerPath / data.cFileName);
+					while (FindNextFile(hFind, &data));
 					FindClose(hFind);
 				}
 			}
 		}
-
-		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
-		for (const auto& s : services) net(s, false);
-
-		WCHAR winDir[MAX_PATH];
-		if (GetWindowsDirectory(winDir, MAX_PATH)) {
-			std::filesystem::path distCache = std::filesystem::path(winDir) / L"SoftwareDistribution";
-			if (std::filesystem::exists(distCache)) {
-				std::filesystem::remove_all(distCache);
-			}
-		}
-
-		for (const auto& s : services) net(s, true);
 
 		for (const auto& proc : {
 			L"cmd.exe",
@@ -404,47 +353,113 @@ void manageTasks(const std::wstring& task)
 			L"steam.exe",
 			L"Origin.exe",
 			L"EADesktop.exe",
-			L"EpicGamesLauncher.exe"
+			L"EpicGamesLauncher.exe",
+			L"Minecraft.exe",
+			L"MinecraftLauncher.exe",
+			L"javaw.exe",
+			L"MinecraftServer.exe",
+			L"java.exe",
+			L"Minecraft.Windows.exe"
 			}) ExitThread(proc);
 
-	std::vector<std::wstring> apps = { L"Microsoft.DirectX",
-		L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2005.x86",
-		L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
-		L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86",
-		L"Microsoft.VCRedist.2012.x64", L"Microsoft.VCRedist.2012.x86",
-		L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86",
-		L"Microsoft.VCRedist.2015+.x64", L"Microsoft.PowerShell",
-		L"Microsoft.WindowsTerminal", L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D",
-		L"9P95ZZKTNRN4", L"9N0DX20HK701", L"9N8G5RFZ9XK3", L"9MVZQVXJBQ9V",
-		L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8",
-		L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG",
-		L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
-		L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
+		std::vector<std::wstring> apps = { L"Microsoft.DirectX",
+			L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2005.x86",
+			L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
+			L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86",
+			L"Microsoft.VCRedist.2012.x64", L"Microsoft.VCRedist.2012.x86",
+			L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86",
+			L"Microsoft.VCRedist.2015+.x64", L"Microsoft.PowerShell",
+			L"Microsoft.WindowsTerminal", L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D",
+			L"9P95ZZKTNRN4", L"9N0DX20HK701", L"9N8G5RFZ9XK3", L"9MVZQVXJBQ9V",
+			L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8",
+			L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG",
+			L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
+			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
 		};
 
-		std::vector<std::wstring> uninstallCommands;
-		std::vector<std::wstring> installCommands;
+		std::vector<std::wstring> uninstall, install;
 
-		for (const auto& app : apps) {
-			uninstallCommands.push_back(L"winget uninstall " + app + L" --purge");
-
-			if (app == L"ElectronicArts.Origin") {
-				continue; // Skip install for Origin
+		for (auto& app : apps) {
+			uninstall.push_back(L"winget uninstall " + app + L" --purge");
+			if (app != L"ElectronicArts.Origin") {
+				std::wstring cmd = L"winget install " + app + L" --accept-package-agreements --accept-source-agreements";
+				if (app == L"Blizzard.BattleNet") cmd += L" --location \"C:\\Battle.Net\"";
+				install.push_back(cmd);
 			}
-
-			std::wstring command = L"winget install " + app;
-			if (app == L"Blizzard.BattleNet") {
-				command += L" --location \"C:\\Battle.Net\"";
-			}
-			command += L" --accept-package-agreements --accept-source-agreements";
-			installCommands.push_back(command);
 		}
 
-		PowerShell(uninstallCommands);
-		PowerShell(installCommands);
+		PowerShell(uninstall);
+		PowerShell(install);
 
+		char appdata[MAX_PATH + 1];
+		size_t size = 0;
+		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
+		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
 
+		std::filesystem::remove_all(configPath);
+		configPath /= "launcher_profiles.json";
+
+		std::vector<std::wstring> cmds = {
+			L"winget uninstall Mojang.MinecraftLauncher --purge -h",
+			L"winget install Oracle.JDK.24 --accept-package-agreements",
+			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
+		};
+
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24" })
+			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
+
+		PowerShell(cmds);
+		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
+		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		for (const auto& proc : {
+				L"Minecraft.exe",
+				L"MinecraftLauncher.exe",
+				L"javaw.exe",
+				L"MinecraftServer.exe",
+				L"java.exe",
+				L"Minecraft.Windows.exe"
+			}) ExitThread(proc);
+		std::wifstream in(configPath);
+		in.imbue(std::locale("en_US.UTF-8"));
+		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
+		in.close();
+
+		std::wstring updated;
+		std::wstringstream ss(config);
+		std::wstring line;
+		while (std::getline(ss, line)) {
+			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
+				updated += line + L"\n";
+		}
+
+		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-24\\\\bin\\\\javaw.exe";
+		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
+			size_t pos = updated.find(type);
+			if (pos != std::wstring::npos) {
+				size_t start = updated.rfind(L'\n', pos);
+				if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
+
+				size_t javaDirPos = pos;
+				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
+					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
+				if (javaDirPos != std::wstring::npos)
+					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
+			}
+		}
+
+		std::wofstream out(configPath);
+		out.imbue(std::locale("en_US.UTF-8"));
+		out << updated;
+		out.close();
 	}
+
+}
+
+// Common styling function for controls
+INT_PTR StyleControl(HDC hdc) {
+	SetBkMode(hdc, TRANSPARENT);
+	SetTextColor(hdc, RGB(200, 200, 200)); // Light gray text
+	return (INT_PTR)GetStockObject(HOLLOW_BRUSH); // Transparent background
 }
 
 void handleCommand(int cb, bool flag) {
@@ -452,8 +467,7 @@ void handleCommand(int cb, bool flag) {
 		{0, [flag]() { manageGame(L"leagueoflegends", flag); }},
 		{1, [flag]() { manageGame(L"dota2", flag); }},
 		{2, [flag]() { manageGame(L"smite2", flag); }},
-		{3, [flag]() { manageGame(L"minecraft", flag); }},
-		{4, []() { manageTasks(L"cafe"); }}
+		{3, []() { manageTasks(L"cafe"); }}
 
 	};
 
@@ -486,51 +500,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			return 0;
 		}
 		break;
-
-		if (HIWORD(wParam) == CBN_DROPDOWN) {
-			InvalidateRect(combo, nullptr, TRUE); // Force redraw
-		}
-	}
-
-	case WM_CTLCOLOREDIT:
-	{
-		HDC hdcEdit = (HDC)wParam;
-		SetBkColor(hdcEdit, RGB(255, 255, 255));       // White background
-		SetTextColor(hdcEdit, RGB(0, 0, 0));           // Black text
-		return (INT_PTR)CreateSolidBrush(RGB(255, 255, 255));
-	}
-
-	case WM_CTLCOLORLISTBOX:
-	{
-		HDC hdcList = (HDC)wParam;
-		SetBkColor(hdcList, RGB(32, 32, 32));          // Dark dropdown background
-		SetTextColor(hdcList, RGB(200, 200, 200));     // Light text
-		return (INT_PTR)CreateSolidBrush(RGB(32, 32, 32));
 	}
 
 	case WM_CTLCOLORBTN:
 	{
-		HDC hdcBtn = (HDC)wParam;
-		SetBkColor(hdcBtn, RGB(255, 255, 255));       // White background
-		SetTextColor(hdcBtn, RGB(0, 0, 0));           // Black text
-		return (INT_PTR)CreateSolidBrush(RGB(255, 255, 255)); // Return white brush
+		HDC hdc = (HDC)wParam;
+		return StyleControl(hdc);
 	}
 
 	case WM_DRAWITEM:
 	{
 		LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
 
-		// Set background and text colors
-		FillRect(dis->hDC, &dis->rcItem, CreateSolidBrush(RGB(255, 255, 255)));
-		SetTextColor(dis->hDC, RGB(0, 0, 0));
+		// Simulate transparent black with a dark fill
+		HBRUSH hBrush = CreateSolidBrush(RGB(30, 30, 30)); // Dark gray
+		FillRect(dis->hDC, &dis->rcItem, hBrush);
+		DeleteObject(hBrush);
+
 		SetBkMode(dis->hDC, TRANSPARENT);
+		SetTextColor(dis->hDC, RGB(200, 200, 200));
 
-		// Get the button text dynamically
 		wchar_t text[256];
-		GetWindowText(dis->hwndItem, text, sizeof(text) / sizeof(wchar_t));
+		GetWindowText(dis->hwndItem, text, _countof(text));
 
-		// Draw the button text
-		DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER);
 		return TRUE;
 	}
 
@@ -617,7 +610,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 		L"League of Legends",
 		L"Dota 2",
 		L"SMITE 2",
-		L"Minecraft",
 		L"Game Clients"
 		}) {
 		SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
@@ -692,7 +684,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 	}
 
 
-	PowerShell({L"cleanmgr.exe /sagerun:1"});
+	PowerShell({ L"cleanmgr.exe /sagerun:1" });
 	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
 	ShowWindow(hWnd, nShowCmd);

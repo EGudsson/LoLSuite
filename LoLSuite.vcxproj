@@ -50,7 +50,7 @@
       <DebugInformationFormat>None</DebugInformationFormat>
       <StringPooling>true</StringPooling>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -69,13 +69,14 @@
       <CCppSupport>Cpp20Support</CCppSupport>
       <CheckUnicodeSecurity>false</CheckUnicodeSecurity>
       <PGOUsePreTrainedModel>true</PGOUsePreTrainedModel>
+      <CompileAsWinRT>false</CompileAsWinRT>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
+      <MinimumRequiredVersion>10.00</MinimumRequiredVersion>
       <AdditionalDependencies>urlmon.lib;wininet.lib;UxTheme.lib;Dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
