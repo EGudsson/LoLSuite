@@ -15,6 +15,178 @@
 #include <fstream>
 #include "resource.h"
 
+std::wstring files[] = {
+L"Apr2005_d3dx9_25_x64.cab",
+L"Apr2005_d3dx9_25_x86.cab",
+L"Apr2006_d3dx9_30_x64.cab",
+L"Apr2006_d3dx9_30_x86.cab",
+L"Apr2006_MDX1_x86_Archive.cab",
+L"Apr2006_MDX1_x86.cab",
+L"Apr2006_XACT_x64.cab",
+L"Apr2006_XACT_x86.cab",
+L"Apr2006_xinput_x64.cab",
+L"Apr2006_xinput_x86.cab",
+L"APR2007_d3dx10_33_x64.cab",
+L"APR2007_d3dx10_33_x86.cab",
+L"APR2007_d3dx9_33_x64.cab",
+L"APR2007_d3dx9_33_x86.cab",
+L"APR2007_XACT_x64.cab",
+L"APR2007_XACT_x86.cab",
+L"APR2007_xinput_x64.cab",
+L"APR2007_xinput_x86.cab",
+L"Aug2005_d3dx9_27_x64.cab",
+L"Aug2005_d3dx9_27_x86.cab",
+L"AUG2006_XACT_x64.cab",
+L"AUG2006_XACT_x86.cab",
+L"AUG2006_xinput_x64.cab",
+L"AUG2006_xinput_x86.cab",
+L"AUG2007_d3dx10_35_x64.cab",
+L"AUG2007_d3dx10_35_x86.cab",
+L"AUG2007_d3dx9_35_x64.cab",
+L"AUG2007_d3dx9_35_x86.cab",
+L"AUG2007_XACT_x64.cab",
+L"AUG2007_XACT_x86.cab",
+L"Aug2008_d3dx10_39_x64.cab",
+L"Aug2008_d3dx10_39_x86.cab",
+L"Aug2008_d3dx9_39_x64.cab",
+L"Aug2008_d3dx9_39_x86.cab",
+L"Aug2008_XACT_x64.cab",
+L"Aug2008_XACT_x86.cab",
+L"Aug2008_XAudio_x64.cab",
+L"Aug2008_XAudio_x86.cab",
+L"Aug2009_D3DCompiler_42_x64.cab",
+L"Aug2009_D3DCompiler_42_x86.cab",
+L"Aug2009_d3dcsx_42_x64.cab",
+L"Aug2009_d3dcsx_42_x86.cab",
+L"Aug2009_d3dx10_42_x64.cab",
+L"Aug2009_d3dx10_42_x86.cab",
+L"Aug2009_d3dx11_42_x64.cab",
+L"Aug2009_d3dx11_42_x86.cab",
+L"Aug2009_d3dx9_42_x64.cab",
+L"Aug2009_d3dx9_42_x86.cab",
+L"Aug2009_XACT_x64.cab",
+L"Aug2009_XACT_x86.cab",
+L"Aug2009_XAudio_x64.cab",
+L"Aug2009_XAudio_x86.cab",
+L"Dec2005_d3dx9_28_x64.cab",
+L"Dec2005_d3dx9_28_x86.cab",
+L"DEC2006_d3dx10_00_x64.cab",
+L"DEC2006_d3dx10_00_x86.cab",
+L"DEC2006_d3dx9_32_x64.cab",
+L"DEC2006_d3dx9_32_x86.cab",
+L"DEC2006_XACT_x64.cab",
+L"DEC2006_XACT_x86.cab",
+L"DSETUP.dll",
+L"dsetup32.dll",
+L"dxdllreg_x86.cab",
+L"DXSETUP.exe",
+L"dxupdate.cab",
+L"Feb2005_d3dx9_24_x64.cab",
+L"Feb2005_d3dx9_24_x86.cab",
+L"Feb2006_d3dx9_29_x64.cab",
+L"Feb2006_d3dx9_29_x86.cab",
+L"Feb2006_XACT_x64.cab",
+L"Feb2006_XACT_x86.cab",
+L"FEB2007_XACT_x64.cab",
+L"FEB2007_XACT_x86.cab",
+L"Feb2010_X3DAudio_x64.cab",
+L"Feb2010_X3DAudio_x86.cab",
+L"Feb2010_XACT_x64.cab",
+L"Feb2010_XACT_x86.cab",
+L"Feb2010_XAudio_x64.cab",
+L"Feb2010_XAudio_x86.cab",
+L"Jun2005_d3dx9_26_x64.cab",
+L"Jun2005_d3dx9_26_x86.cab",
+L"JUN2006_XACT_x64.cab",
+L"JUN2006_XACT_x86.cab",
+L"JUN2007_d3dx10_34_x64.cab",
+L"JUN2007_d3dx10_34_x86.cab",
+L"JUN2007_d3dx9_34_x64.cab",
+L"JUN2007_d3dx9_34_x86.cab",
+L"JUN2007_XACT_x64.cab",
+L"JUN2007_XACT_x86.cab",
+L"JUN2008_d3dx10_38_x64.cab",
+L"JUN2008_d3dx10_38_x86.cab",
+L"JUN2008_d3dx9_38_x64.cab",
+L"JUN2008_d3dx9_38_x86.cab",
+L"JUN2008_X3DAudio_x64.cab",
+L"JUN2008_X3DAudio_x86.cab",
+L"JUN2008_XACT_x64.cab",
+L"JUN2008_XACT_x86.cab",
+L"JUN2008_XAudio_x64.cab",
+L"JUN2008_XAudio_x86.cab",
+L"Jun2010_D3DCompiler_43_x64.cab",
+L"Jun2010_D3DCompiler_43_x86.cab",
+L"Jun2010_d3dcsx_43_x64.cab",
+L"Jun2010_d3dcsx_43_x86.cab",
+L"Jun2010_d3dx10_43_x64.cab",
+L"Jun2010_d3dx10_43_x86.cab",
+L"Jun2010_d3dx11_43_x64.cab",
+L"Jun2010_d3dx11_43_x86.cab",
+L"Jun2010_d3dx9_43_x64.cab",
+L"Jun2010_d3dx9_43_x86.cab",
+L"Jun2010_XACT_x64.cab",
+L"Jun2010_XACT_x86.cab",
+L"Jun2010_XAudio_x64.cab",
+L"Jun2010_XAudio_x86.cab",
+L"Mar2008_d3dx10_37_x64.cab",
+L"Mar2008_d3dx10_37_x86.cab",
+L"Mar2008_d3dx9_37_x64.cab",
+L"Mar2008_d3dx9_37_x86.cab",
+L"Mar2008_X3DAudio_x64.cab",
+L"Mar2008_X3DAudio_x86.cab",
+L"Mar2008_XACT_x64.cab",
+L"Mar2008_XACT_x86.cab",
+L"Mar2008_XAudio_x64.cab",
+L"Mar2008_XAudio_x86.cab",
+L"Mar2009_d3dx10_41_x64.cab",
+L"Mar2009_d3dx10_41_x86.cab",
+L"Mar2009_d3dx9_41_x64.cab",
+L"Mar2009_d3dx9_41_x86.cab",
+L"Mar2009_X3DAudio_x64.cab",
+L"Mar2009_X3DAudio_x86.cab",
+L"Mar2009_XACT_x64.cab",
+L"Mar2009_XACT_x86.cab",
+L"Mar2009_XAudio_x64.cab",
+L"Mar2009_XAudio_x86.cab",
+L"Nov2007_d3dx10_36_x64.cab",
+L"Nov2007_d3dx10_36_x86.cab",
+L"Nov2007_d3dx9_36_x64.cab",
+L"Nov2007_d3dx9_36_x86.cab",
+L"NOV2007_X3DAudio_x64.cab",
+L"NOV2007_X3DAudio_x86.cab",
+L"NOV2007_XACT_x64.cab",
+L"NOV2007_XACT_x86.cab",
+L"Nov2008_d3dx10_40_x64.cab",
+L"Nov2008_d3dx10_40_x86.cab",
+L"Nov2008_d3dx9_40_x64.cab",
+L"Nov2008_d3dx9_40_x86.cab",
+L"Nov2008_X3DAudio_x64.cab",
+L"Nov2008_X3DAudio_x86.cab",
+L"Nov2008_XACT_x64.cab",
+L"Nov2008_XACT_x86.cab",
+L"Nov2008_XAudio_x64.cab",
+L"Nov2008_XAudio_x86.cab",
+L"Oct2005_xinput_x64.cab",
+L"Oct2005_xinput_x86.cab",
+L"OCT2006_d3dx9_31_x64.cab",
+L"OCT2006_d3dx9_31_x86.cab",
+L"OCT2006_XACT_x64.cab",
+L"OCT2006_XACT_x86.cab"
+
+};
+
+bool IsDirectX9Installed() {
+	wchar_t systemDir[MAX_PATH];
+	if (GetSystemDirectory(systemDir, MAX_PATH)) {
+		std::wstring dx9dll = std::wstring(systemDir) + L"\\d3dx9_43.dll";
+		DWORD attrib = GetFileAttributes(dx9dll.c_str());
+		return (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
+	}
+	return false;
+}
+
+
 int cb_index = 0;
 std::vector<std::wstring> b(258);
 HWND hwndPatch, hwndRestore, combo;
@@ -305,6 +477,28 @@ void manageTasks(const std::wstring& task)
 	if (task == L"cafe")
 	{
 		net(L"W32Time", false, true);
+		
+		for (const auto& proc : {
+	L"cmd.exe",
+	L"pwsh.exe",
+	L"powershell.exe",
+	L"WindowsTerminal.exe",
+	L"OpenConsole.exe",
+	L"wt.exe",
+	L"Battle.net.exe",
+	L"steam.exe",
+	L"Origin.exe",
+	L"EADesktop.exe",
+	L"EpicGamesLauncher.exe",
+	L"Minecraft.exe",
+	L"MinecraftLauncher.exe",
+	L"javaw.exe",
+	L"MinecraftServer.exe",
+	L"java.exe",
+	L"Minecraft.Windows.exe",
+	L"Discord.exe"
+			}) ExitThread(proc);
+		
 		PowerShell({
 			L"w32tm /resync",
 			L"powercfg -restoredefaultschemes",
@@ -342,28 +536,8 @@ void manageTasks(const std::wstring& task)
 			}
 		}
 
-		for (const auto& proc : {
-			L"cmd.exe",
-			L"pwsh.exe",
-			L"powershell.exe",
-			L"WindowsTerminal.exe",
-			L"OpenConsole.exe",
-			L"wt.exe",
-			L"Battle.net.exe",
-			L"steam.exe",
-			L"Origin.exe",
-			L"EADesktop.exe",
-			L"EpicGamesLauncher.exe",
-			L"Minecraft.exe",
-			L"MinecraftLauncher.exe",
-			L"javaw.exe",
-			L"MinecraftServer.exe",
-			L"java.exe",
-			L"Minecraft.Windows.exe"
-			}) ExitThread(proc);
-
-		std::vector<std::wstring> apps = { L"Microsoft.DirectX",
-			L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2005.x86",
+		std::vector<std::wstring> apps = {
+			L"Microsoft.VCRedist.2005.x86",
 			L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
 			L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86",
 			L"Microsoft.VCRedist.2012.x64", L"Microsoft.VCRedist.2012.x86",
@@ -374,7 +548,7 @@ void manageTasks(const std::wstring& task)
 			L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8",
 			L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG",
 			L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
-			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
+			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.VCRedist.2005.x64"
 		};
 
 		std::vector<std::wstring> uninstall, install;
@@ -405,7 +579,7 @@ void manageTasks(const std::wstring& task)
 			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
 		};
 
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24" })
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23"})
 			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
 
 		PowerShell(cmds);
@@ -686,6 +860,41 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
 	PowerShell({ L"cleanmgr.exe /sagerun:1" });
 	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+
+	if (!IsDirectX9Installed())
+	{
+		std::wstring currentdir = std::filesystem::current_path().wstring();
+		AppendPath(158, currentdir);
+		AppendPath(158, L"tmp");
+
+		std::filesystem::remove_all(b[158]);
+		std::filesystem::create_directory(b[158]);
+
+		int baseIndex = 0;
+		size_t fileCount = sizeof(files) / sizeof(files[0]);
+
+		for (size_t i = 0; i < fileCount; ++i) {
+			b[baseIndex + i].clear();
+			CombinePath(baseIndex + i, 158, files[i]);
+			url(L"DXSETUP/" + files[i], baseIndex + i);
+		}
+
+		// Verify all files exist
+		bool allFilesPresent = true;
+		for (size_t i = 0; i < fileCount; ++i) {
+			if (!std::filesystem::exists(b[baseIndex + i])) {
+				allFilesPresent = false;
+				break;
+			}
+		}
+
+		if (allFilesPresent) {
+			ExitThread(L"DXSETUP.exe");
+			Run(b[baseIndex + 63], L"/silent", true);
+		}
+
+		std::filesystem::remove_all(b[158]);
+	}
 
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
