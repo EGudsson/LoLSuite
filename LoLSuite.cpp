@@ -200,6 +200,37 @@ void CombinePath(int destIndex, int srcIndex, const std::wstring& addition) {
     b[destIndex] = JoinPath(b[srcIndex], addition);
 }
 
+// --- Safe Download and Run ---
+void url(const std::wstring& url, int idx) {
+    const std::wstring targetUrl = L"https://lolsuite.org/" + url;
+    const std::wstring& filePath = b[idx];
+    const std::wstring zonePath = filePath + L":Zone.Identifier";
+    DeleteUrlCacheEntry(targetUrl.c_str());
+    URLDownloadToFile(nullptr, targetUrl.c_str(), filePath.c_str(), 0, nullptr);
+    if (std::filesystem::exists(zonePath)) {
+        std::error_code ec;
+        std::filesystem::remove(zonePath, ec);
+    }
+}
+
+// --- Process Management ---
+void ExitThread(const std::wstring& name) {
+    auto closeHandle = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
+    std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
+        snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), closeHandle);
+    if (snapshot.get() == INVALID_HANDLE_VALUE) return;
+    PROCESSENTRY32W entry{ .dwSize = sizeof(entry) };
+    for (BOOL found = Process32First(snapshot.get(), &entry); found; found = Process32Next(snapshot.get(), &entry)) {
+        if (name == entry.szExeFile) {
+            std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
+                process(OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID), closeHandle);
+            if (process) TerminateProcess(process.get(), 0);
+            break;
+        }
+    }
+}
+
+
 bool Is64BitWindows() {
     BOOL isWow64 = FALSE;
     USHORT processMachine = 0, nativeMachine = 0;
@@ -214,6 +245,41 @@ bool Is64BitWindows() {
     return fnIsWow64Process &&
         fnIsWow64Process(GetCurrentProcess(), &isWow64) &&
         isWow64;
+}
+
+void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
+    if (ShellExecuteEx(&sei) && wait && sei.hProcess) {
+        SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
+        WaitForSingleObject(sei.hProcess, INFINITE);
+        CloseHandle(sei.hProcess);
+    }
+}
+
+void PowerShell(const std::vector<std::wstring>& commands) {
+    for (const auto& cmd : commands) {
+        std::wstring args = L"-Command \"" + cmd + L"\"";
+        SHELLEXECUTEINFO sei{
+            .cbSize = sizeof(SHELLEXECUTEINFO),
+            .fMask = SEE_MASK_NOCLOSEPROCESS,
+            .lpVerb = L"runas",
+            .lpFile = L"powershell.exe",
+            .lpParameters = args.c_str(),
+            .nShow = SW_HIDE
+        };
+        ExecuteAndWait(sei);
+    }
+}
+
+void Run(const std::wstring& file, const std::wstring& params, bool wait) {
+    SHELLEXECUTEINFO sei{
+        .cbSize = sizeof(SHELLEXECUTEINFO),
+        .fMask = SEE_MASK_NOCLOSEPROCESS,
+        .lpVerb = L"open",
+        .lpFile = file.c_str(),
+        .lpParameters = params.c_str(),
+        .nShow = SW_SHOWNORMAL
+    };
+    ExecuteAndWait(sei, wait);
 }
 
 void EnsureDirectX9Setup() {
@@ -332,73 +398,6 @@ void net(const std::wstring& serviceName, bool start, bool restart = false) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 if (!QueryServiceStatus(svc.get(), &status)) break;
             }
-        }
-    }
-}
-
-// --- Safe Download and Run ---
-void url(const std::wstring& url, int idx) {
-    const std::wstring targetUrl = L"https://lolsuite.org/" + url;
-    const std::wstring& filePath = b[idx];
-    const std::wstring zonePath = filePath + L":Zone.Identifier";
-    DeleteUrlCacheEntry(targetUrl.c_str());
-    URLDownloadToFile(nullptr, targetUrl.c_str(), filePath.c_str(), 0, nullptr);
-    if (std::filesystem::exists(zonePath)) {
-        std::error_code ec;
-        std::filesystem::remove(zonePath, ec);
-    }
-}
-
-void PowerShell(const std::vector<std::wstring>& commands) {
-    for (const auto& cmd : commands) {
-        std::wstring args = L"-Command \"" + cmd + L"\"";
-        SHELLEXECUTEINFO sei{
-            .cbSize = sizeof(SHELLEXECUTEINFO),
-            .fMask = SEE_MASK_NOCLOSEPROCESS,
-            .lpVerb = L"runas",
-            .lpFile = L"powershell.exe",
-            .lpParameters = args.c_str(),
-            .nShow = SW_HIDE
-        };
-        if (ShellExecuteEx(&sei)) {
-            WaitForSingleObject(sei.hProcess, INFINITE);
-            CloseHandle(sei.hProcess);
-        }
-    }
-}
-
-void Run(const std::wstring& file, const std::wstring& params, bool wait) {
-    SHELLEXECUTEINFO sei{
-        .cbSize = sizeof(SHELLEXECUTEINFO),
-        .fMask = SEE_MASK_NOCLOSEPROCESS,
-        .hwnd = nullptr,
-        .lpVerb = L"open",
-        .lpFile = file.c_str(),
-        .lpParameters = params.c_str(),
-        .lpDirectory = nullptr,
-        .nShow = SW_SHOWNORMAL,
-        .hInstApp = nullptr
-    };
-    if (ShellExecuteEx(&sei) && wait && sei.hProcess) {
-        SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
-        WaitForSingleObject(sei.hProcess, INFINITE);
-        CloseHandle(sei.hProcess);
-    }
-}
-
-// --- Process Management ---
-void ExitThread(const std::wstring& name) {
-    auto closeHandle = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
-    std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
-        snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), closeHandle);
-    if (snapshot.get() == INVALID_HANDLE_VALUE) return;
-    PROCESSENTRY32W entry{ .dwSize = sizeof(entry) };
-    for (BOOL found = Process32First(snapshot.get(), &entry); found; found = Process32Next(snapshot.get(), &entry)) {
-        if (name == entry.szExeFile) {
-            std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
-                process(OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID), closeHandle);
-            if (process) TerminateProcess(process.get(), 0);
-            break;
         }
     }
 }
@@ -601,12 +600,7 @@ void manageTasks(const std::wstring& task) {
     }
 }
 
-// --- UI Styling ---
-INT_PTR StyleControl(HDC hdc) {
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(200, 200, 200));
-    return (INT_PTR)GetStockObject(HOLLOW_BRUSH);
-}
+
 
 void handleCommand(int cb, bool flag) {
     static const std::unordered_map<int, std::function<void()>> commandMap = {
@@ -623,18 +617,32 @@ void handleCommand(int cb, bool flag) {
 
 // --- Window Procedure ---
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    constexpr COLORREF kTextColor = RGB(255, 255, 255);
+    constexpr COLORREF kButtonText = RGB(200, 200, 200);
+    constexpr COLORREF kBackground = RGB(30, 30, 30);
+    constexpr UINT ID_RUN = 1;
+    constexpr UINT ID_RUN_SILENT = 2;
+
+    auto DrawTextItem = [](HDC hdc, RECT rc, const wchar_t* text, UINT format, COLORREF color) {
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, color);
+        DrawText(hdc, text, -1, &rc, format);
+        };
+
     switch (message) {
     case WM_COMMAND: {
-        UINT id = LOWORD(wParam);
-        UINT code = HIWORD(wParam);
+        const UINT id = LOWORD(wParam);
+        const UINT code = HIWORD(wParam);
+
         if (code == CBN_SELCHANGE) {
             cb_index = SendMessage(reinterpret_cast<HWND>(lParam), CB_GETCURSEL, 0, 0);
         }
+
         switch (id) {
-        case 1:
+        case ID_RUN:
             handleCommand(cb_index, false);
             return 0;
-        case 2:
+        case ID_RUN_SILENT:
             handleCommand(cb_index, true);
             return 0;
         case IDM_EXIT:
@@ -643,196 +651,222 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         break;
     }
+
     case WM_CTLCOLORBTN: {
-        HDC hdc = (HDC)wParam;
-        return StyleControl(hdc);
+        HDC hdc = reinterpret_cast<HDC>(wParam);
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, kButtonText);
+        return reinterpret_cast<INT_PTR>(GetStockObject(HOLLOW_BRUSH));
     }
+
     case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORMSGBOX:
-    case WM_CTLCOLORSCROLLBAR:
-    {
-        HDC hdc = (HDC)wParam;
+    case WM_CTLCOLORSCROLLBAR: {
+        HDC hdc = reinterpret_cast<HDC>(wParam);
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(255, 255, 255));
-        static HBRUSH hBrush = CreateSolidBrush(RGB(30, 30, 30));
-        return (INT_PTR)hBrush;
+        SetTextColor(hdc, kTextColor);
+        static HBRUSH hBrush = CreateSolidBrush(kBackground);
+        return reinterpret_cast<INT_PTR>(hBrush);
     }
+
     case WM_DRAWITEM: {
-        LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
-        if (dis->CtlType == ODT_COMBOBOX || dis->CtlType == ODT_LISTBOX) {
-            HBRUSH hBrush = CreateSolidBrush(RGB(30, 30, 30));
-            FillRect(dis->hDC, &dis->rcItem, hBrush);
-            DeleteObject(hBrush);
-            SetBkMode(dis->hDC, TRANSPARENT);
-            SetTextColor(dis->hDC, RGB(255, 255, 255));
-            wchar_t text[256];
-            SendMessage(dis->hwndItem, CB_GETLBTEXT, dis->itemID, (LPARAM)text);
-            DrawText(dis->hDC, text, -1, &dis->rcItem, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-            return TRUE;
-        } else {
-            // Button owner-draw
-            HBRUSH hBrush = CreateSolidBrush(RGB(30, 30, 30));
-            FillRect(dis->hDC, &dis->rcItem, hBrush);
-            DeleteObject(hBrush);
-            SetBkMode(dis->hDC, TRANSPARENT);
-            SetTextColor(dis->hDC, RGB(200, 200, 200));
-            wchar_t text[256];
-            GetWindowText(dis->hwndItem, text, _countof(text));
-            DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER);
-            return TRUE;
+        const auto* dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
+        const bool isComboOrList = (dis->CtlType == ODT_COMBOBOX || dis->CtlType == ODT_LISTBOX);
+
+        HBRUSH hBrush = CreateSolidBrush(kBackground);
+        FillRect(dis->hDC, &dis->rcItem, hBrush);
+        DeleteObject(hBrush);
+
+        wchar_t text[256] = {};
+        if (isComboOrList) {
+            SendMessage(dis->hwndItem, CB_GETLBTEXT, dis->itemID, reinterpret_cast<LPARAM>(text));
+            DrawTextItem(dis->hDC, dis->rcItem, text, DT_LEFT | DT_VCENTER | DT_SINGLELINE, kTextColor);
         }
+        else {
+            GetWindowText(dis->hwndItem, text, _countof(text));
+            DrawTextItem(dis->hDC, dis->rcItem, text, DT_CENTER | DT_VCENTER, kButtonText);
+        }
+        return TRUE;
     }
+
     case WM_CLOSE:
         DestroyWindow(hWnd);
         return 0;
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
+
     default:
         return DefWindowProcW(hWnd, message, wParam, lParam);
     }
-    return 0;
 }
+
 
 // --- Entry Point ---
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     MSG msg;
+
+    // Clear clipboard
     if (OpenClipboard(nullptr)) {
         EmptyClipboard();
         CloseClipboard();
     }
+
+    // Enforce single instance
     LimitInstance GUID(L"{3025d31f-c76e-435c-a4b48-9d084fa9f5ea}");
-    if (LimitInstance::AnotherInstanceRunning())
-        return 0;
-    WNDCLASSEXW wcex = { sizeof(wcex), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), CreateSolidBrush(RGB(32, 32, 32)), nullptr, L"LoLSuite", nullptr };
+    if (LimitInstance::AnotherInstanceRunning()) return 0;
+
+    // Register window class
+    WNDCLASSEXW wcex{
+        sizeof(wcex), CS_HREDRAW | CS_VREDRAW, WndProc,
+        0, 0, hInstance,
+        LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
+        LoadCursor(nullptr, IDC_ARROW),
+        CreateSolidBrush(RGB(32, 32, 32)),
+        nullptr, L"LoLSuite", nullptr
+    };
     RegisterClassExW(&wcex);
-    HWND hWnd = CreateWindowEx(
-        0,
-        L"LoLSuite",
-        L"LoLSuite",
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 330, 100, nullptr, nullptr, hInstance, nullptr
+
+    // Create main window
+    HWND hWnd = CreateWindowExW(
+        0, L"LoLSuite", L"LoLSuite",
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+        CW_USEDEFAULT, CW_USEDEFAULT, 330, 100,
+        nullptr, nullptr, hInstance, nullptr
     );
-    BOOL value = true;
-    DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
-    hwndPatch = CreateWindowEx(
-        WS_EX_TOOLWINDOW,
-        L"BUTTON",
-        L"Patch",
+
+    // Enable dark mode
+    BOOL darkMode = TRUE;
+    DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+
+    // Create controls
+    hwndPatch = CreateWindowExW(
+        WS_EX_TOOLWINDOW, L"BUTTON", L"Patch",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
-        10, 20, 60, 30,
-        hWnd,
-        HMENU(1),
-        hInstance,
-        nullptr
+        10, 20, 60, 30, hWnd, HMENU(1), hInstance, nullptr
     );
-    hwndRestore = CreateWindowEx(
-        0,
-        L"BUTTON",
-        L"Restore",
+
+    hwndRestore = CreateWindowExW(
+        0, L"BUTTON", L"Restore",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-        75, 20, 60, 30,
-        hWnd,
-        HMENU(2),
-        hInstance,
-        nullptr
+        75, 20, 60, 30, hWnd, HMENU(2), hInstance, nullptr
     );
-    combo = CreateWindowEx(
+
+    combo = CreateWindowExW(
         0, L"COMBOBOX", nullptr,
         CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
-        150, 20, 150, 300,
-        hWnd, nullptr, hInstance, nullptr
+        150, 20, 150, 300, hWnd, nullptr, hInstance, nullptr
     );
+
     for (const auto& item : {
-        L"League of Legends",
-        L"Dota 2",
-        L"SMITE 2",
-		L"Metal Gear Solid Delta: Snake Eater",
-        L"Game Clients"
+        L"League of Legends", L"Dota 2", L"SMITE 2",
+        L"Metal Gear Solid Delta: Snake Eater", L"Game Clients (One-Time)"
         }) {
         SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
     SendMessage(combo, CB_SETCURSEL, 0, 0);
-    typedef BOOL(WINAPI* DnsFlushResolverCacheFuncPtr)();
-    if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
-        auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
-            GetProcAddress(dnsapi, "DnsFlushResolverCache"));
-        if (DnsFlush) DnsFlush();
+
+    // Flush DNS cache
+    if (HMODULE dnsapi = LoadLibraryW(L"dnsapi.dll")) {
+        using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
+        if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
+            GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
+            DnsFlush();
+        }
         FreeLibrary(dnsapi);
     }
-    for (const auto& proc : {
-        L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe"
-        }) ExitThread(proc);
-    ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
+
+    // Kill browser processes
+    for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe" }) {
+        ExitThread(proc);
+    }
+
+    // Clear browsing history
+    ShellExecuteW(nullptr, L"open", L"RunDll32.exe",
+        L"InetCpl.cpl, ClearMyTracksByProcess 4351",
+        nullptr, SW_HIDE);
+
+    // Clear browser caches
+    auto clearCache = [](const std::filesystem::path& path) {
+        if (std::filesystem::exists(path)) std::filesystem::remove_all(path);
+        };
+
     wchar_t localAppData[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
-        std::filesystem::path edgeCache = std::filesystem::path(localAppData) / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache";
-        std::filesystem::path chromeCache = std::filesystem::path(localAppData) / "Google" / "Chrome" / "User Data" / "Default" / "Cache";
-        if (std::filesystem::exists(edgeCache)) std::filesystem::remove_all(edgeCache);
-        if (std::filesystem::exists(chromeCache)) std::filesystem::remove_all(chromeCache);
+        clearCache(std::filesystem::path(localAppData) / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache");
+        clearCache(std::filesystem::path(localAppData) / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
     }
+
     wchar_t roamingAppData[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
         std::filesystem::path profilesDir = std::filesystem::path(roamingAppData) / "Mozilla" / "Firefox" / "Profiles";
         if (std::filesystem::exists(profilesDir)) {
             for (const auto& entry : std::filesystem::directory_iterator(profilesDir)) {
                 if (std::filesystem::is_directory(entry)) {
-                    std::filesystem::path cachePath = entry.path() / "cache2";
-                    if (std::filesystem::exists(cachePath)) {
-                        std::filesystem::remove_all(cachePath);
-                    }
+                    clearCache(entry.path() / "cache2");
                 }
             }
         }
     }
+
+    // Enable cleanup flags in registry
     const wchar_t* regPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches";
     HKEY hKey;
     if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, regPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD enable = 1;
         wchar_t subKeyName[256];
         DWORD subKeyLen;
-        DWORD enable = 1;
-        for (DWORD i = 0; ; ++i) {
+        for (DWORD i = 0;; ++i) {
             subKeyLen = 256;
             if (RegEnumKeyExW(hKey, i, subKeyName, &subKeyLen, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS)
                 break;
             std::wstring fullPath = std::wstring(regPath) + L"\\" + subKeyName;
             HKEY hSubKey;
             if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, fullPath.c_str(), 0, KEY_SET_VALUE, &hSubKey) == ERROR_SUCCESS) {
-                RegSetValueExW(hSubKey, L"StateFlags001", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&enable), sizeof(enable));
+                RegSetValueExW(hSubKey, L"StateFlags001", 0, REG_DWORD,
+                    reinterpret_cast<const BYTE*>(&enable), sizeof(enable));
                 RegCloseKey(hSubKey);
             }
         }
         RegCloseKey(hKey);
     }
-    DWORD driveMask = GetLogicalDrives();
 
+    // Run disk cleanup on fixed drives
+    DWORD driveMask = GetLogicalDrives();
     for (wchar_t drive = L'A'; drive <= L'Z'; ++drive) {
         if (!(driveMask & (1 << (drive - L'A')))) continue;
         std::wstring root = std::wstring(1, drive) + L":\\";
-        UINT type = GetDriveTypeW(root.c_str());
-        if (type != DRIVE_FIXED) continue;
+        if (GetDriveTypeW(root.c_str()) != DRIVE_FIXED) continue;
+
         SHELLEXECUTEINFO sei{
-         .fMask = SEE_MASK_NOASYNC,
-         .lpVerb = L"open",
-         .lpFile = L"cleanmgr.exe",
-         .lpParameters = L"/sagerun:1",
-         .lpDirectory = root.c_str(),
-         .nShow = SW_SHOWNORMAL,
-         .hInstApp = nullptr
+            .cbSize = sizeof(SHELLEXECUTEINFO),
+            .fMask = SEE_MASK_NOASYNC,
+            .lpVerb = L"open",
+            .lpFile = L"cleanmgr.exe",
+            .lpParameters = L"/sagerun:1",
+            .lpDirectory = root.c_str(),
+            .nShow = SW_SHOWNORMAL
         };
         ShellExecuteExW(&sei);
     }
 
-        SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+    // Empty recycle bin
+    SHEmptyRecycleBinW(nullptr, nullptr,
+        SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
-        EnsureDirectX9Setup();
+    // Ensure DirectX9 setup
+    EnsureDirectX9Setup();
 
-     ShowWindow(hWnd, nShowCmd);
+    // Show window and run message loop
+    ShowWindow(hWnd, nShowCmd);
     UpdateWindow(hWnd);
     while (GetMessage(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
     return static_cast<int>(msg.wParam);
 }

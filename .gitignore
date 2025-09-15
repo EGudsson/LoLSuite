@@ -43,3 +43,5 @@ LoLSuite.vcxproj.user
 LoLSuite.sln
 
 .vs
+Release
+LoLSuite
