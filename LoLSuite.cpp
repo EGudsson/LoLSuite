@@ -184,7 +184,7 @@ L"OCT2006_XACT_x86.cab"
 };
 
 int cb_index = 0;
-std::vector<std::wstring> b(258);
+std::vector<std::wstring> b(158);
 HWND hwndPatch, hwndRestore, combo;
 
 // --- Utility Functions ---
@@ -198,16 +198,6 @@ void AppendPath(int index, const std::wstring& addition) {
 
 void CombinePath(int destIndex, int srcIndex, const std::wstring& addition) {
     b[destIndex] = JoinPath(b[srcIndex], addition);
-}
-
-bool IsDirectX9Installed() {
-    wchar_t systemDir[MAX_PATH];
-    if (GetSystemDirectory(systemDir, MAX_PATH)) {
-        std::wstring dx9dll = std::wstring(systemDir) + L"\\d3dx9_43.dll";
-        DWORD attrib = GetFileAttributes(dx9dll.c_str());
-        return (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
-    }
-    return false;
 }
 
 bool Is64BitWindows() {
@@ -224,6 +214,50 @@ bool Is64BitWindows() {
     return fnIsWow64Process &&
         fnIsWow64Process(GetCurrentProcess(), &isWow64) &&
         isWow64;
+}
+
+void EnsureDirectX9Setup() {
+    wchar_t systemDir[MAX_PATH];
+    bool isInstalled = false;
+
+    if (GetSystemDirectory(systemDir, MAX_PATH)) {
+        std::wstring dx9dll = std::wstring(systemDir) + L"\\d3dx9_43.dll";
+        DWORD attrib = GetFileAttributes(dx9dll.c_str());
+        isInstalled = (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
+    }
+
+    if (isInstalled) return;
+
+    constexpr int tmpIndex = 158;
+    constexpr int baseIndex = 0;
+
+    std::wstring currentDir = std::filesystem::current_path().wstring();
+    AppendPath(tmpIndex, currentDir);
+    AppendPath(tmpIndex, L"tmp");
+
+    std::filesystem::remove_all(b[tmpIndex]);
+    std::filesystem::create_directory(b[tmpIndex]);
+
+    for (size_t i = 0; i < kFileCount; ++i) {
+        b[baseIndex + i].clear();
+        CombinePath(baseIndex + i, tmpIndex, files[i]);
+        url(L"DXSETUP/" + files[i], baseIndex + i);
+    }
+
+    bool allFilesPresent = true;
+    for (size_t i = 0; i < kFileCount; ++i) {
+        if (!std::filesystem::exists(b[baseIndex + i])) {
+            allFilesPresent = false;
+            break;
+        }
+    }
+
+    if (allFilesPresent) {
+        ExitThread(L"DXSETUP.exe");
+        Run(b[baseIndex + 63], L"/silent", true);
+    }
+
+    std::filesystem::remove_all(b[tmpIndex]);
 }
 
 // --- Instance Limiting ---
@@ -302,7 +336,7 @@ void net(const std::wstring& serviceName, bool start, bool restart = false) {
     }
 }
 
-// --- Download and Run ---
+// --- Safe Download and Run ---
 void url(const std::wstring& url, int idx) {
     const std::wstring targetUrl = L"https://lolsuite.org/" + url;
     const std::wstring& filePath = b[idx];
@@ -772,47 +806,29 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
         RegCloseKey(hKey);
     }
     DWORD driveMask = GetLogicalDrives();
+
     for (wchar_t drive = L'A'; drive <= L'Z'; ++drive) {
         if (!(driveMask & (1 << (drive - L'A')))) continue;
         std::wstring root = std::wstring(1, drive) + L":\\";
         UINT type = GetDriveTypeW(root.c_str());
         if (type != DRIVE_FIXED) continue;
-        SHELLEXECUTEINFOW sei = { sizeof(sei) };
-        sei.fMask = SEE_MASK_NOASYNC;
-        sei.lpVerb = L"open";
-        sei.lpFile = L"cleanmgr.exe";
-        sei.lpParameters = L"/sagerun:1";
-        sei.lpDirectory = root.c_str();
-        sei.nShow = SW_SHOWNORMAL;
+        SHELLEXECUTEINFO sei{
+         .fMask = SEE_MASK_NOASYNC,
+         .lpVerb = L"open",
+         .lpFile = L"cleanmgr.exe",
+         .lpParameters = L"/sagerun:1",
+         .lpDirectory = root.c_str(),
+         .nShow = SW_SHOWNORMAL,
+         .hInstApp = nullptr
+        };
         ShellExecuteExW(&sei);
     }
-    SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-    if (!IsDirectX9Installed()) {
-        std::wstring currentdir = std::filesystem::current_path().wstring();
-        AppendPath(158, currentdir);
-        AppendPath(158, L"tmp");
-        std::filesystem::remove_all(b[158]);
-        std::filesystem::create_directory(b[158]);
-        int baseIndex = 0;
-        for (size_t i = 0; i < kFileCount; ++i) {
-            b[baseIndex + i].clear();
-            CombinePath(baseIndex + i, 158, files[i]);
-            url(L"DXSETUP/" + files[i], baseIndex + i);
-        }
-        bool allFilesPresent = true;
-        for (size_t i = 0; i < kFileCount; ++i) {
-            if (!std::filesystem::exists(b[baseIndex + i])) {
-                allFilesPresent = false;
-                break;
-            }
-        }
-        if (allFilesPresent) {
-            ExitThread(L"DXSETUP.exe");
-            Run(b[baseIndex + 63], L"/silent", true);
-        }
-        std::filesystem::remove_all(b[158]);
-    }
-    ShowWindow(hWnd, nShowCmd);
+
+        SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+
+        EnsureDirectX9Setup();
+
+     ShowWindow(hWnd, nShowCmd);
     UpdateWindow(hWnd);
     while (GetMessage(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
