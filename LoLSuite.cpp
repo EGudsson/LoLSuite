@@ -763,7 +763,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
     for (const auto& item : {
         L"League of Legends", L"Dota 2", L"SMITE 2",
-        L"Metal Gear Solid Delta: Snake Eater", L"Game Clients"
+        L"Metal Gear Solid Delta", L"Game Clients"
         }) {
         SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
