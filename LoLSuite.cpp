@@ -1,7 +1,4 @@
-﻿#define WIN32_LEAN_AND_MEAN
-#define _UNICODE
-#define UNICODE
-#include <windows.h>
+﻿#include <windows.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
 #include <TlHelp32.h>

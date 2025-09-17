@@ -55,7 +55,7 @@
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <IncludeInUnityFile>false</IncludeInUnityFile>
-      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ConformanceMode>true</ConformanceMode>
       <CompileAs>CompileAsCpp</CompileAs>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
@@ -70,6 +70,7 @@
       <CheckUnicodeSecurity>false</CheckUnicodeSecurity>
       <PGOUsePreTrainedModel>true</PGOUsePreTrainedModel>
       <CompileAsWinRT>false</CompileAsWinRT>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
