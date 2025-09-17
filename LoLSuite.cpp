@@ -490,13 +490,18 @@ void manageGame(const std::wstring& game, bool restore) {
         folder();
         for (const auto& proc : { L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" })
             ExitThread(proc);
-        CombinePath(8, 0, L"Binaries\\Win64");
+        CombinePath(8, 0, L"OakGame\\Binaries\\Win64");
         CombinePath(1, 8, L"tbb.dll");
-        CombinePath(2, 8, L"tbb12.dll");
-        CombinePath(3, 8, L"tbbmalloc.dll");
+        CombinePath(2, 8, L"tbbmalloc.dll");
         url(restore ? L"restore/blands4/tbb.dll" : L"patch/tbb.dll", 1);
-        url(restore ? L"restore/blands4//tbb12.dll" : L"patch/tbb.dll", 2);
-        url(restore ? L"restore/blands4//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
+        url(restore ? L"restore/blands4//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 2);
+
+        CombinePath(7, 0, L"Engine\\Binaries\\Win64");
+        CombinePath(3, 7, L"tbb.dll");
+        CombinePath(4, 7, L"tbbmalloc.dll");
+        url(restore ? L"restore/blands4/tbb.dll" : L"patch/tbb.dll", 3);
+        url(restore ? L"restore/blands4//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
+        
         Run(L"steam://rungameid/1285190", L"", false);
     }
 }
