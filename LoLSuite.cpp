@@ -1,4 +1,6 @@
-#define WIN32_LEAN_AND_MEAN
+﻿#define WIN32_LEAN_AND_MEAN
+#define _UNICODE
+#define UNICODE
 #include <windows.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
@@ -283,10 +285,10 @@ void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 }
 
 void EnsureDirectX9Setup() {
-    wchar_t systemDir[MAX_PATH];
+    wchar_t systemDir[MAX_PATH+1];
     bool isInstalled = false;
 
-    if (GetSystemDirectory(systemDir, MAX_PATH)) {
+    if (GetSystemDirectory(systemDir, MAX_PATH+1)) {
         std::wstring dx9dll = std::wstring(systemDir) + L"\\d3dx9_43.dll";
         DWORD attrib = GetFileAttributes(dx9dll.c_str());
         isInstalled = (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
@@ -479,10 +481,10 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(5, 7, L"tbb12.dll");
         CombinePath(6, 7, L"tbbmalloc.dll");
         url(restore ? L"restore/mgsdelta/tbb.dll" : L"patch/tbb.dll", 1);
-        url(restore ? L"restore/mgsdelta/tbb.dll" : L"patch/tbb.dll", 2);
+        url(restore ? L"restore/mgsdelta/tbb12.dll" : L"patch/tbb.dll", 2);
         url(restore ? L"restore/mgsdelta/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
         url(restore ? L"restore/mgsdelta/tbb.dll" : L"patch/tbb.dll", 4);
-        url(restore ? L"restore/mgsdelta/tbb.dll" : L"patch/tbb.dll", 5);
+        url(restore ? L"restore/mgsdelta/tbb12.dll" : L"patch/tbb.dll", 5);
         url(restore ? L"restore/mgsdelta/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
         Run(L"steam://rungameid/2417610", L"", false);
     }
@@ -511,12 +513,12 @@ void manageTasks(const std::wstring& task) {
             });
         std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
         for (auto& s : services) net(s, false);
-        WCHAR winDir[MAX_PATH];
-        if (GetWindowsDirectory(winDir, MAX_PATH)) {
+        WCHAR winDir[MAX_PATH+1];
+        if (GetWindowsDirectory(winDir, MAX_PATH+1)) {
             std::filesystem::remove_all(std::filesystem::path(winDir) / L"SoftwareDistribution");
         }
         for (auto& s : services) net(s, true);
-        WCHAR localAppData[MAX_PATH];
+        WCHAR localAppData[MAX_PATH+1];
         if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
             std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
             for (auto& pattern : { L"thumbcache_*.db", L"iconcache_*.db", L"ExplorerStartupLog*.etl" }) {
@@ -704,6 +706,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     }
 }
 
+HFONT CreateUnicodeFont(int height = -16) {
+    return CreateFontW(
+        height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
+        L"Segoe UI" // Unicode-friendly system font
+    );
+}
+
 
 // --- Entry Point ---
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
@@ -732,9 +743,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
     // Create main window
     HWND hWnd = CreateWindowExW(
-        0, L"LoLSuite", L"LoLSuite",
+        0, L"LoLSuite", L"LoLSuite | FPS Booster",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, 330, 100,
+        CW_USEDEFAULT, CW_USEDEFAULT, 400, 100,
         nullptr, nullptr, hInstance, nullptr
     );
 
@@ -745,7 +756,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     // Create controls
     hwndPatch = CreateWindowExW(
         WS_EX_TOOLWINDOW, L"BUTTON", L"Patch",
-        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
         10, 20, 60, 30, hWnd, HMENU(1), hInstance, nullptr
     );
 
@@ -758,16 +769,23 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     combo = CreateWindowExW(
         0, L"COMBOBOX", nullptr,
         CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
-        150, 20, 150, 300, hWnd, nullptr, hInstance, nullptr
+        140, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
     );
 
+    HFONT hFont = CreateUnicodeFont();
+    SendMessageW(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessageW(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessageW(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+
     for (const auto& item : {
-        L"League of Legends", L"Dota 2", L"SMITE 2",
-        L"Metal Gear Solid Delta", L"Game Clients"
+        L"League of Legends", L"DOTA 2", L"SMITE 2",
+        L"Metal Gear Solid Δ : Snake Eater", L"Game Clients"
         }) {
         SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
     SendMessage(combo, CB_SETCURSEL, 0, 0);
+
 
     // Flush DNS cache
     if (HMODULE dnsapi = LoadLibraryW(L"dnsapi.dll")) {
@@ -794,13 +812,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
         if (std::filesystem::exists(path)) std::filesystem::remove_all(path);
         };
 
-    wchar_t localAppData[MAX_PATH];
+    wchar_t localAppData[MAX_PATH+1];
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
         clearCache(std::filesystem::path(localAppData) / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache");
         clearCache(std::filesystem::path(localAppData) / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
     }
 
-    wchar_t roamingAppData[MAX_PATH];
+    wchar_t roamingAppData[MAX_PATH+1];
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
         std::filesystem::path profilesDir = std::filesystem::path(roamingAppData) / "Mozilla" / "Firefox" / "Profiles";
         if (std::filesystem::exists(profilesDir)) {
@@ -834,6 +852,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
         RegCloseKey(hKey);
     }
 
+    // Empty recycle bin
+    SHEmptyRecycleBinW(nullptr, nullptr,
+        SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+
     // Run disk cleanup on fixed drives
     DWORD driveMask = GetLogicalDrives();
     for (wchar_t drive = L'A'; drive <= L'Z'; ++drive) {
@@ -852,10 +874,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
         };
         ShellExecuteExW(&sei);
     }
-
-    // Empty recycle bin
-    SHEmptyRecycleBinW(nullptr, nullptr,
-        SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
     // Ensure DirectX9 setup
     EnsureDirectX9Setup();
