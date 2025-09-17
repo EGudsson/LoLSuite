@@ -488,7 +488,22 @@ void manageGame(const std::wstring& game, bool restore) {
         url(restore ? L"restore/mgsdelta/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
         Run(L"steam://rungameid/2417610", L"", false);
     }
+    else if (game == L"blands4") {
+        MessageBoxEx(nullptr, L"Select: Borderlands 4 Install Base Dir", L"LoLSuite", MB_OK, 0);
+        folder();
+        for (const auto& proc : { L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" })
+            ExitThread(proc);
+        CombinePath(8, 0, L"Binaries\\Win64");
+        CombinePath(1, 8, L"tbb.dll");
+        CombinePath(2, 8, L"tbb12.dll");
+        CombinePath(3, 8, L"tbbmalloc.dll");
+        url(restore ? L"restore/blands4/tbb.dll" : L"patch/tbb.dll", 1);
+        url(restore ? L"restore/blands4//tbb12.dll" : L"patch/tbb.dll", 2);
+        url(restore ? L"restore/blands4//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
+        Run(L"steam://rungameid/1285190", L"", false);
+    }
 }
+
 
 void manageTasks(const std::wstring& task) {
     if (task == L"cafe") {
@@ -497,7 +512,7 @@ void manageTasks(const std::wstring& task) {
             L"cmd.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe",
             L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe",
             L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
-            L"Minecraft.Windows.exe", L"Discord.exe"
+            L"Minecraft.Windows.exe"
             }) ExitThread(proc);
         PowerShell({
             L"w32tm /resync",
@@ -610,7 +625,8 @@ void handleCommand(int cb, bool flag) {
         {1, [flag]() { manageGame(L"dota2", flag); }},
         {2, [flag]() { manageGame(L"smite2", flag); }},
         {3, [flag]() { manageGame(L"mgsdelta", flag); }},
-        {4, []() { manageTasks(L"cafe"); }}
+        {4, [flag]() { manageGame(L"blands4", flag); }},
+        {5, []() { manageTasks(L"cafe"); }}
     };
     if (auto it = commandMap.find(cb); it != commandMap.end()) {
         it->second();
@@ -745,7 +761,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     HWND hWnd = CreateWindowExW(
         0, L"LoLSuite", L"LoLSuite | FPS Booster",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, 400, 100,
+        CW_USEDEFAULT, CW_USEDEFAULT, 420, 100,
         nullptr, nullptr, hInstance, nullptr
     );
 
@@ -769,7 +785,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     combo = CreateWindowExW(
         0, L"COMBOBOX", nullptr,
         CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
-        140, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
+        160, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
     );
 
     HFONT hFont = CreateUnicodeFont();
@@ -780,7 +796,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
     for (const auto& item : {
         L"League of Legends", L"DOTA 2", L"SMITE 2",
-        L"Metal Gear Solid Δ : Snake Eater", L"Game Clients"
+        L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"Game Clients"
         }) {
         SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
