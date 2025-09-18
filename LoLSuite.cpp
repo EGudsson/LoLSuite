@@ -577,10 +577,10 @@ void manageTasks(const std::wstring& task) {
         configPath /= "launcher_profiles.json";
         std::vector<std::wstring> cmds = {
             L"winget uninstall Mojang.MinecraftLauncher --purge -h",
-            L"winget install Oracle.JDK.24 --accept-package-agreements",
+            L"winget install Oracle.JDK.25 --accept-package-agreements",
             L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
         };
-        for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23" })
+        for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24"})
             cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
         PowerShell(cmds);
         Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
@@ -599,7 +599,7 @@ void manageTasks(const std::wstring& task) {
             if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
                 updated += line + L"\n";
         }
-        std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-24\\\\bin\\\\javaw.exe";
+        std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25\\\\bin\\\\javaw.exe";
         for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
             size_t pos = updated.find(type);
             if (pos != std::wstring::npos) {
