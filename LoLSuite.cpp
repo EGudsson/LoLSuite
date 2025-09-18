@@ -458,10 +458,10 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(2, 8, L"tbbmalloc.dll");
         CombinePath(3, 7, L"tbb.dll");
         CombinePath(4, 7, L"tbbmalloc.dll");
-        url(restore ? L"restore/smite2/tbb.dll" : (Is64BitWindows() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll"), 1);
-        url(restore ? L"restore/smite2/tbbmalloc.dll" : (Is64BitWindows() ? L"patch/tbbmalloc.dll" : L"patch/tbbmalloc_x86.dll"), 2);
-        url(restore ? L"restore/smite2/tbb.dll" : (Is64BitWindows() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll"), 3);
-        url(restore ? L"restore/smite2/tbbmalloc.dll" : (Is64BitWindows() ? L"patch/tbbmalloc.dll" : L"patch/tbbmalloc_x86.dll"), 4);
+        url(restore ? L"restore/smite2/tbb.dll" : L"patch/tbb.dll", 1);
+        url(restore ? L"restore/smite2/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 2);
+        url(restore ? L"restore/smite2/tbb.dll" : L"patch/tbb.dll", 3);
+        url(restore ? L"restore/smite2/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
         Run(L"steam://rungameid/2437170", L"", false);
     }
     else if (game == L"mgsdelta") {
