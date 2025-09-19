@@ -804,10 +804,10 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int
     );
 
     HFONT hFont = CreateFont(
-        -16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        -16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
-        L"Segoe UI" // Unicode-friendly system font
+        L"Segoe UI"
     );
 
     SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
