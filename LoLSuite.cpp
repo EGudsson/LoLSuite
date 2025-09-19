@@ -12,12 +12,6 @@
 #include <dwmapi.h>
 #include <uxtheme.h>
 #include <fstream>
-#include <unordered_map>
-#include <memory>
-#include <thread>
-#include <chrono>
-#include <locale>
-#include <sstream>
 #include "resource.h"
 
 // --- Constants and Globals ---
@@ -346,7 +340,9 @@ public:
 };
 
 // --- File/Folder Dialog ---
-HRESULT folder() {
+HRESULT folder(std::wstring path) {
+    std::wstring message = L"Select: " + path;
+    MessageBoxEx(nullptr, message.c_str(), L"LoLSuite", MB_OK, 0);
     b[0].clear();
     WCHAR szFolderPath[MAX_PATH + 1];
     IFileDialog* pfd = nullptr;
@@ -404,8 +400,7 @@ void net(const std::wstring& serviceName, bool start, bool restart = false) {
 // --- Game and Task Management ---
 void manageGame(const std::wstring& game, bool restore) {
     if (game == L"leagueoflegends") {
-        MessageBoxEx(nullptr, L"Select: C:\\Riot Games", L"LoLSuite", MB_OK, 0);
-        folder();
+        folder(L"C:\\Riot Games");
         for (const auto& proc : {
             L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
             L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
@@ -436,8 +431,7 @@ void manageGame(const std::wstring& game, bool restore) {
         Run(b[56], L"", false);
     }
     else if (game == L"dota2") {
-        MessageBoxEx(nullptr, L"Select: C:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta", L"LoLSuite", MB_OK, 0);
-        folder();
+        folder(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta");
         ExitThread(L"dota2.exe");
         AppendPath(0, L"game\\bin\\win64");
         CombinePath(1, 0, L"embree3.dll");
@@ -447,8 +441,7 @@ void manageGame(const std::wstring& game, bool restore) {
         Run(L"steam://rungameid/570//-high -dx11 -fullscreen/", L"", false);
     }
     else if (game == L"smite2") {
-        MessageBoxEx(nullptr, L"Select: C:\\Program Files (x86)\\Steam\\steamapps\\common\\SMITE 2", L"LoLSuite", MB_OK, 0);
-        folder();
+        folder(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\SMITE 2");
         AppendPath(0, L"Windows");
         for (const auto& proc : { L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" })
             ExitThread(proc);
@@ -465,8 +458,7 @@ void manageGame(const std::wstring& game, bool restore) {
         Run(L"steam://rungameid/2437170", L"", false);
     }
     else if (game == L"mgsΔ") {
-        MessageBoxEx(nullptr, L"Select: METAL GEAR SOLID Δ Install Base Dir", L"LoLSuite", MB_OK, 0);
-        folder();
+        folder(L"METAL GEAR SOLID Δ Install Base Dir");
         for (const auto& proc : { L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe"})
             ExitThread(proc);
         CombinePath(8, 0, L"MGSDelta\\Binaries\\Win64");
@@ -486,8 +478,7 @@ void manageGame(const std::wstring& game, bool restore) {
         Run(L"steam://rungameid/2417610", L"", false);
     }
     else if (game == L"blands4") {
-        MessageBoxEx(nullptr, L"Select: Borderlands 4 Install Base Dir", L"LoLSuite", MB_OK, 0);
-        folder();
+        folder(L"Borderlands 4 Install Base Dir");
         for (const auto& proc : { L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" })
             ExitThread(proc);
         CombinePath(8, 0, L"OakGame\\Binaries\\Win64");
@@ -505,8 +496,7 @@ void manageGame(const std::wstring& game, bool restore) {
         Run(L"steam://rungameid/1285190", L"", false);
     }
     else if (game == L"oblivionr") {
-        MessageBoxEx(nullptr, L"Select: Oblivion Remastered Install Base Dir", L"LoLSuite", MB_OK, 0);
-        folder();
+        folder(L"Oblivion Remastered Install Base Dir");
         for (const auto& proc : { L"OblivionRemastered-Win64-Shipping.exe"})
             ExitThread(proc);
 
@@ -633,8 +623,6 @@ void manageTasks(const std::wstring& task) {
     }
 }
 
-
-
 void handleCommand(int cb, bool flag) {
     static const std::unordered_map<int, std::function<void()>> commandMap = {
         {0, [flag]() { manageGame(L"leagueoflegends", flag); }},
@@ -735,19 +723,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         return 0;
 
     default:
-        return DefWindowProcW(hWnd, message, wParam, lParam);
+        return DefWindowProc(hWnd, message, wParam, lParam);
     }
 }
-
-HFONT CreateUnicodeFont(int height = -16) {
-    return CreateFontW(
-        height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
-        L"Segoe UI" // Unicode-friendly system font
-    );
-}
-
 
 // --- Entry Point ---
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
@@ -772,43 +750,46 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
         CreateSolidBrush(RGB(32, 32, 32)),
         nullptr, L"LoLSuite", nullptr
     };
-    RegisterClassExW(&wcex);
+    RegisterClassEx(&wcex);
 
     // Create main window
-    HWND hWnd = CreateWindowExW(
+    HWND hWnd = CreateWindowEx(
         0, L"LoLSuite", L"LoLSuite | FPS Booster",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT, 420, 100,
         nullptr, nullptr, hInstance, nullptr
     );
 
-    // Enable dark mode
-    BOOL darkMode = TRUE;
-    DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
 
     // Create controls
-    hwndPatch = CreateWindowExW(
+    hwndPatch = CreateWindowEx(
         WS_EX_TOOLWINDOW, L"BUTTON", L"Patch",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
         10, 20, 60, 30, hWnd, HMENU(1), hInstance, nullptr
     );
 
-    hwndRestore = CreateWindowExW(
+    hwndRestore = CreateWindowEx(
         0, L"BUTTON", L"Restore",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
         75, 20, 60, 30, hWnd, HMENU(2), hInstance, nullptr
     );
 
-    combo = CreateWindowExW(
+    combo = CreateWindowEx(
         0, L"COMBOBOX", nullptr,
         CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
         160, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
     );
 
-    HFONT hFont = CreateUnicodeFont();
-    SendMessageW(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
-    SendMessageW(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
-    SendMessageW(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
+    HFONT hFont = CreateFont(
+        -16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
+        L"Segoe UI" // Unicode-friendly system font
+    );
+
+    SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessage(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessage(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
 
 
     for (const auto& item : {
@@ -821,7 +802,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
 
     // Flush DNS cache
-    if (HMODULE dnsapi = LoadLibraryW(L"dnsapi.dll")) {
+    if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
         using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
         if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
             GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
@@ -846,13 +827,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
         };
 
     wchar_t localAppData[MAX_PATH+1];
-    if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
+    if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
         clearCache(std::filesystem::path(localAppData) / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache");
         clearCache(std::filesystem::path(localAppData) / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
     }
 
     wchar_t roamingAppData[MAX_PATH+1];
-    if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
+    if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
         std::filesystem::path profilesDir = std::filesystem::path(roamingAppData) / "Mozilla" / "Firefox" / "Profiles";
         if (std::filesystem::exists(profilesDir)) {
             for (const auto& entry : std::filesystem::directory_iterator(profilesDir)) {
@@ -866,18 +847,18 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     // Enable cleanup flags in registry
     const wchar_t* regPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches";
     HKEY hKey;
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, regPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, regPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
         DWORD enable = 1;
         wchar_t subKeyName[256];
         DWORD subKeyLen;
         for (DWORD i = 0;; ++i) {
             subKeyLen = 256;
-            if (RegEnumKeyExW(hKey, i, subKeyName, &subKeyLen, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS)
+            if (RegEnumKeyEx(hKey, i, subKeyName, &subKeyLen, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS)
                 break;
             std::wstring fullPath = std::wstring(regPath) + L"\\" + subKeyName;
             HKEY hSubKey;
-            if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, fullPath.c_str(), 0, KEY_SET_VALUE, &hSubKey) == ERROR_SUCCESS) {
-                RegSetValueExW(hSubKey, L"StateFlags001", 0, REG_DWORD,
+            if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, fullPath.c_str(), 0, KEY_SET_VALUE, &hSubKey) == ERROR_SUCCESS) {
+                RegSetValueEx(hSubKey, L"StateFlags001", 0, REG_DWORD,
                     reinterpret_cast<const BYTE*>(&enable), sizeof(enable));
                 RegCloseKey(hSubKey);
             }
@@ -886,8 +867,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
     }
 
     // Empty recycle bin
-    SHEmptyRecycleBinW(nullptr, nullptr,
-        SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+    SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
     // Run disk cleanup on fixed drives
     DWORD driveMask = GetLogicalDrives();
@@ -905,7 +885,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
             .lpDirectory = root.c_str(),
             .nShow = SW_SHOWNORMAL
         };
-        ShellExecuteExW(&sei);
+        ShellExecuteEx(&sei);
     }
 
     // Ensure DirectX9 setup
