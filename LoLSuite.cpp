@@ -227,14 +227,23 @@ void ExitThread(const std::wstring& name) {
 bool Is64BitWindows() {
     BOOL isWow64 = FALSE;
     USHORT processMachine = 0, nativeMachine = 0;
-    auto fnIsWow64Process2 = reinterpret_cast<BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*)>(
-        GetProcAddress(GetModuleHandleW(L"kernel32"), "IsWow64Process2"));
+
+    HMODULE hKernel32 = GetModuleHandleW(L"kernel32");
+    if (!hKernel32) return false;
+
+    using FnIsWow64Process2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
+    auto fnIsWow64Process2 = reinterpret_cast<FnIsWow64Process2>(
+        GetProcAddress(hKernel32, "IsWow64Process2"));
+
     if (fnIsWow64Process2 &&
         fnIsWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
         return nativeMachine != IMAGE_FILE_MACHINE_I386;
     }
-    auto fnIsWow64Process = reinterpret_cast<BOOL(WINAPI*)(HANDLE, PBOOL)>(
-        GetProcAddress(GetModuleHandleW(L"kernel32"), "IsWow64Process"));
+
+    using FnIsWow64Process = BOOL(WINAPI*)(HANDLE, PBOOL);
+    auto fnIsWow64Process = reinterpret_cast<FnIsWow64Process>(
+        GetProcAddress(hKernel32, "IsWow64Process"));
+
     return fnIsWow64Process &&
         fnIsWow64Process(GetCurrentProcess(), &isWow64) &&
         isWow64;
@@ -728,7 +737,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 }
 
 // --- Entry Point ---
-int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
+// Entry point for a Windows application using Unicode.
+// Parameters:
+//   hInstance   - Handle to the current instance of the application.
+//   hPrevInstance - Unused, always NULL in modern Windows.
+//   lpCmdLine   - Command-line arguments as a Unicode string.
+//   nShowCmd    - Flag that says whether the main window should be minimized, maximized, or shown normally.
+int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd) {
     MSG msg;
 
     // Clear clipboard
@@ -754,7 +769,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
     // Create main window
     HWND hWnd = CreateWindowEx(
-        0, L"LoLSuite", L"LoLSuite | FPS Booster",
+        0, L"LoLSuite", L"LoLSuite GUI",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         CW_USEDEFAULT, CW_USEDEFAULT, 420, 100,
         nullptr, nullptr, hInstance, nullptr
