@@ -504,6 +504,20 @@ void manageGame(const std::wstring& game, bool restore) {
         
         Run(L"steam://rungameid/1285190", L"", false);
     }
+    else if (game == L"oblivionr") {
+        MessageBoxEx(nullptr, L"Select: Oblivion Remastered Install Base Dir", L"LoLSuite", MB_OK, 0);
+        folder();
+        for (const auto& proc : { L"OblivionRemastered-Win64-Shipping.exe"})
+            ExitThread(proc);
+
+        CombinePath(7, 0, L"Engine\\Binaries\\Win64");
+        CombinePath(3, 7, L"tbb.dll");
+        CombinePath(4, 7, L"tbbmalloc.dll");
+        url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 3);
+        url(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
+
+        Run(L"steam://rungameid/2623190", L"", false);
+    }
 }
 
 
@@ -798,7 +812,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
     for (const auto& item : {
         L"League of Legends", L"DOTA 2", L"SMITE 2",
-        L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"Game Clients"
+        L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered" L"Game Clients"
         }) {
         SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
