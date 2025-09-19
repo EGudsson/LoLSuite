@@ -523,7 +523,6 @@ void manageGame(const std::wstring& game, bool restore) {
         url(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
         url(restore ? L"restore/oblivionr/tbb12.dll" : L"patch/tbb.dll", 9);
 
-
         Run(L"steam://rungameid/2623190", L"", false);
     }
 }
