@@ -477,12 +477,12 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(4, 7, L"tbb.dll");
         CombinePath(5, 7, L"tbb12.dll");
         CombinePath(6, 7, L"tbbmalloc.dll");
-        url(restore ? L"restore/mgsΔ/tbb.dll" : L"patch/tbb.dll", 1);
-        url(restore ? L"restore/mgsΔ/tbb12.dll" : L"patch/tbb.dll", 2);
-        url(restore ? L"restore/mgsΔ/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
-        url(restore ? L"restore/mgsΔ/tbb.dll" : L"patch/tbb.dll", 4);
-        url(restore ? L"restore/mgsΔ/tbb12.dll" : L"patch/tbb.dll", 5);
-        url(restore ? L"restore/mgsΔ/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
+        url(restore ? L"restore/mgs/tbb.dll" : L"patch/tbb.dll", 1);
+        url(restore ? L"restore/mgs/tbb12.dll" : L"patch/tbb.dll", 2);
+        url(restore ? L"restore/mgs/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
+        url(restore ? L"restore/mgs/tbb.dll" : L"patch/tbb.dll", 4);
+        url(restore ? L"restore/mgs/tbb12.dll" : L"patch/tbb.dll", 5);
+        url(restore ? L"restore/mgs/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
         Run(L"steam://rungameid/2417610", L"", false);
     }
     else if (game == L"blands4") {
