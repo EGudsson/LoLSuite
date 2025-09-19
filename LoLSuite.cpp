@@ -889,7 +889,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int
     for (wchar_t drive = L'A'; drive <= L'Z'; ++drive) {
         if (!(driveMask & (1 << (drive - L'A')))) continue;
         std::wstring root = std::wstring(1, drive) + L":\\";
-        if (GetDriveTypeW(root.c_str()) != DRIVE_FIXED) continue;
+        if (GetDriveType(root.c_str()) != DRIVE_FIXED) continue;
 
         SHELLEXECUTEINFO sei{
             .cbSize = sizeof(SHELLEXECUTEINFO),
