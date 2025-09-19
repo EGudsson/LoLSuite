@@ -642,7 +642,8 @@ void handleCommand(int cb, bool flag) {
         {2, [flag]() { manageGame(L"smite2", flag); }},
         {3, [flag]() { manageGame(L"mgsdelta", flag); }},
         {4, [flag]() { manageGame(L"blands4", flag); }},
-        {5, []() { manageTasks(L"cafe"); }}
+        {5, [flag]() { manageGame(L"oblivionr", flag); }},
+        {6, []() { manageTasks(L"cafe"); }}
     };
     if (auto it = commandMap.find(cb); it != commandMap.end()) {
         it->second();
@@ -812,7 +813,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd) {
 
     for (const auto& item : {
         L"League of Legends", L"DOTA 2", L"SMITE 2",
-        L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered" L"Game Clients"
+        L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered", L"Game Clients"
         }) {
         SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
