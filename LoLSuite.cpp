@@ -512,10 +512,18 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(7, 0, L"Engine\\Binaries\\Win64");
         CombinePath(3, 7, L"tbb.dll");
         CombinePath(4, 7, L"tbbmalloc.dll");
-        CombinePath(5, 7, L"tbb12.dll");
         url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 3);
         url(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
-        url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 4);
+
+        CombinePath(8, 0, L"OblivionRemastered\Binaries\Win64");
+        CombinePath(5, 8, L"tbb.dll");
+        CombinePath(6, 8, L"tbbmalloc.dll");
+        CombinePath(7, 8, L"tbbmalloc.dll");
+        url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 5);
+        url(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
+        url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 7);
+
+
         Run(L"steam://rungameid/2623190", L"", false);
     }
 }
