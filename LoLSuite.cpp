@@ -464,8 +464,8 @@ void manageGame(const std::wstring& game, bool restore) {
         url(restore ? L"restore/smite2/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
         Run(L"steam://rungameid/2437170", L"", false);
     }
-    else if (game == L"mgsdelta") {
-        MessageBoxEx(nullptr, L"Select: METAL GEAR SOLID DELTA Install Base Dir", L"LoLSuite", MB_OK, 0);
+    else if (game == L"mgsΔ") {
+        MessageBoxEx(nullptr, L"Select: METAL GEAR SOLID Δ Install Base Dir", L"LoLSuite", MB_OK, 0);
         folder();
         for (const auto& proc : { L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe"})
             ExitThread(proc);
@@ -477,12 +477,12 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(4, 7, L"tbb.dll");
         CombinePath(5, 7, L"tbb12.dll");
         CombinePath(6, 7, L"tbbmalloc.dll");
-        url(restore ? L"restore/mgsdelta/tbb.dll" : L"patch/tbb.dll", 1);
-        url(restore ? L"restore/mgsdelta/tbb12.dll" : L"patch/tbb.dll", 2);
-        url(restore ? L"restore/mgsdelta/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
-        url(restore ? L"restore/mgsdelta/tbb.dll" : L"patch/tbb.dll", 4);
-        url(restore ? L"restore/mgsdelta/tbb12.dll" : L"patch/tbb.dll", 5);
-        url(restore ? L"restore/mgsdelta/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
+        url(restore ? L"restore/mgsΔ/tbb.dll" : L"patch/tbb.dll", 1);
+        url(restore ? L"restore/mgsΔ/tbb12.dll" : L"patch/tbb.dll", 2);
+        url(restore ? L"restore/mgsΔ/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
+        url(restore ? L"restore/mgsΔ/tbb.dll" : L"patch/tbb.dll", 4);
+        url(restore ? L"restore/mgsΔ/tbb12.dll" : L"patch/tbb.dll", 5);
+        url(restore ? L"restore/mgsΔ/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
         Run(L"steam://rungameid/2417610", L"", false);
     }
     else if (game == L"blands4") {
@@ -640,7 +640,7 @@ void handleCommand(int cb, bool flag) {
         {0, [flag]() { manageGame(L"leagueoflegends", flag); }},
         {1, [flag]() { manageGame(L"dota2", flag); }},
         {2, [flag]() { manageGame(L"smite2", flag); }},
-        {3, [flag]() { manageGame(L"mgsdelta", flag); }},
+        {3, [flag]() { manageGame(L"mgsΔ", flag); }},
         {4, [flag]() { manageGame(L"blands4", flag); }},
         {5, [flag]() { manageGame(L"oblivionr", flag); }},
         {6, []() { manageTasks(L"cafe"); }}
