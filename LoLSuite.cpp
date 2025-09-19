@@ -518,7 +518,7 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(8, 0, L"OblivionRemastered\Binaries\Win64");
         CombinePath(5, 8, L"tbb.dll");
         CombinePath(6, 8, L"tbbmalloc.dll");
-        CombinePath(7, 8, L"tbbmalloc.dll");
+        CombinePath(7, 8, L"tbb12.dll");
         url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 5);
         url(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
         url(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 7);
