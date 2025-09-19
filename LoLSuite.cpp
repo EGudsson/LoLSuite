@@ -430,7 +430,7 @@ void manageGame(const std::wstring& game, bool restore) {
         CombinePath(55, 51, L"tbb.dll");
         CombinePath(54, 0, L"d3dcompiler_47.dll");
         if (restore)
-            DeleteFile(b[55].c_str());
+            std::filesystem::remove(b[55]);
         else
             url(Is64BitWindows() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 55);
         auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" :
@@ -525,6 +525,7 @@ void manageGame(const std::wstring& game, bool restore) {
 
         Run(L"steam://rungameid/2623190", L"", false);
     }
+    exit(0);
 }
 
 
@@ -638,6 +639,7 @@ void manageTasks(const std::wstring& task) {
         out << updated;
         out.close();
     }
+    exit(0);
 }
 
 void handleCommand(int cb, bool flag) {
