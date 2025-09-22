@@ -349,6 +349,7 @@ public:
 std::wstring folder(const std::wstring& path) {
 	std::wstring message = L"Select: " + path;
 	MessageBoxEx(nullptr, message.c_str(), L"LoLSuite", MB_OK, 0);
+	b[0].clear();
 	std::wstring selectedPath;
 	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 	if (FAILED(hrInit)) return selectedPath;
@@ -375,7 +376,7 @@ std::wstring folder(const std::wstring& path) {
 	}
 
 	CoUninitialize();
-	return selectedPath;
+	b[0] = selectedPath;
 }
 
 // --- Service Management ---
