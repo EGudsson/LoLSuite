@@ -346,30 +346,36 @@ public:
 	}
 };
 
-// --- File/Folder Dialog ---
-static HRESULT folder(std::wstring path) {
+std::wstring folder(const std::wstring& path) {
 	std::wstring message = L"Select: " + path;
 	MessageBoxEx(nullptr, message.c_str(), L"LoLSuite", MB_OK, 0);
-	b[0].clear();
-	WCHAR szFolderPath[MAX_PATH + 1];
+	std::wstring selectedPath;
+	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	if (FAILED(hrInit)) return selectedPath;
+
 	IFileDialog* pfd = nullptr;
 	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
-	if (FAILED(hr) || !pfd) return hr;
-	pfd->SetOptions(FOS_PICKFOLDERS);
-	if (SUCCEEDED(pfd->Show(nullptr))) {
-		IShellItem* psi = nullptr;
-		if (SUCCEEDED(pfd->GetResult(&psi)) && psi) {
-			PWSTR pszPath = nullptr;
-			if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszPath))) {
-				wcsncpy_s(szFolderPath, ARRAYSIZE(szFolderPath), pszPath, _TRUNCATE);
-				b[0] = szFolderPath;
-				CoTaskMemFree(pszPath);
+	if (SUCCEEDED(hr) && pfd) {
+		DWORD dwOptions;
+		pfd->GetOptions(&dwOptions);
+		pfd->SetOptions(dwOptions | FOS_PICKFOLDERS);
+
+		if (SUCCEEDED(pfd->Show(nullptr))) {
+			IShellItem* psi = nullptr;
+			if (SUCCEEDED(pfd->GetResult(&psi)) && psi) {
+				PWSTR pszPath = nullptr;
+				if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszPath))) {
+					selectedPath = pszPath;
+					CoTaskMemFree(pszPath);
+				}
+				psi->Release();
 			}
-			psi->Release();
 		}
+		pfd->Release();
 	}
-	pfd->Release();
-	return S_OK;
+
+	CoUninitialize();
+	return selectedPath;
 }
 
 // --- Service Management ---
