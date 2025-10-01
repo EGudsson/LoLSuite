@@ -176,7 +176,7 @@ L"OCT2006_XACT_x86.cab"
 };
 
 int cb_index = 0;
-std::vector<std::wstring> b(158);
+std::vector<std::wstring> b(200);
 HWND hwndPatch, hwndRestore, combo;
 
 // --- Utility Functions ---
