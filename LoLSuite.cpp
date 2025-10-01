@@ -284,16 +284,13 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 }
 
 static void EnsureDirectX9Setup() {
-	wchar_t systemDir[MAX_PATH + 1];
-	bool isInstalled = false;
-
-	if (GetSystemDirectory(systemDir, MAX_PATH + 1)) {
-		std::wstring dx9dll = std::wstring(systemDir) + L"\\d3dx9_43.dll";
-		DWORD attrib = GetFileAttributes(dx9dll.c_str());
-		isInstalled = (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
+	// Try to load the DirectX 9 DLL dynamically
+	HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
+	if (hDX9) {
+		// DLL is present, DirectX 9 is installed
+		FreeLibrary(hDX9);
+		return;
 	}
-
-	if (isInstalled) return;
 
 	constexpr int tmpIndex = 158;
 	constexpr int baseIndex = 0;
@@ -325,6 +322,7 @@ static void EnsureDirectX9Setup() {
 
 	std::filesystem::remove_all(b[tmpIndex]);
 }
+
 
 // --- Instance Limiting ---
 class LimitInstance {
