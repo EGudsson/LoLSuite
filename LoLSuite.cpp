@@ -287,13 +287,12 @@ static void EnsureDirectX9Setup() {
 	wchar_t systemDir[MAX_PATH + 1];
 	bool isInstalled = false;
 
-	if (GetSystemDirectory(systemDir, MAX_PATH + 1)) {
-		std::wstring dx9dll = std::wstring(systemDir) + L"\\d3dx9_43.dll";
-		DWORD attrib = GetFileAttributes(dx9dll.c_str());
-		isInstalled = (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
+	// Check if DirectX 9 is installed by attempting to load d3dx9_43.dll
+	HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
+	if (hDX9) {
+		FreeLibrary(hDX9);
+		return; // Already installed
 	}
-
-	if (isInstalled) return;
 
 	constexpr int tmpIndex = 158;
 	constexpr int baseIndex = 0;
