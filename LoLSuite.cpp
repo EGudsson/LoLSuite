@@ -1,4 +1,5 @@
 ﻿#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
@@ -10,10 +11,9 @@
 #include <vector>
 #include <functional>
 #include <mutex>
-#include <dwmapi.h>
-#include <uxtheme.h>
 #include <fstream>
 #include "resource.h"
+
 
 constexpr size_t kFileCount = 157;
 std::wstring files[kFileCount] = {
