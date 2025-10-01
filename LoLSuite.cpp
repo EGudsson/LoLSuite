@@ -285,8 +285,6 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 }
 
 static void EnsureDirectX9Setup() {
-	wchar_t systemDir[MAX_PATH + 1];
-	bool isInstalled = false;
 
 	// Check if DirectX 9 is installed by attempting to load d3dx9_43.dll
 	HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
