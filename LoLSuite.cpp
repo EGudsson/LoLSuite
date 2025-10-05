@@ -644,31 +644,20 @@ int wWinMain(
 	};
 	RegisterClassEx(&wcex);
 
+	constexpr int windowWidth = 420;
+	constexpr int windowHeight = 100;
+
 	HWND hWnd = CreateWindowEx(
-		0, L"LoLSuite", L"LoLSuite GUI",
+		WS_EX_LAYERED, // Add this for transparency support
+		L"LoLSuite", L"LoLSuite FPS Booster",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-		CW_USEDEFAULT, CW_USEDEFAULT, 420, 100,
+		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
 		nullptr, nullptr, hInstance, nullptr
 	);
 
-	hwndPatch = CreateWindowEx(
-		WS_EX_TOOLWINDOW, L"BUTTON", L"Patch",
-		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-		10, 20, 60, 30, hWnd, HMENU(1), hInstance, nullptr
-	);
+	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA); // 229 ≈ 90% opacity
 
-	hwndRestore = CreateWindowEx(
-		0, L"BUTTON", L"Restore",
-		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-		75, 20, 60, 30, hWnd, HMENU(2), hInstance, nullptr
-	);
-
-	combo = CreateWindowEx(
-		0, L"COMBOBOX", nullptr,
-		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
-		160, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
-	);
-
+	// Common font for all controls
 	HFONT hFont = CreateFont(
 		-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -676,9 +665,29 @@ int wWinMain(
 		L"Segoe UI"
 	);
 
-	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
+	// Patch button
+	hwndPatch = CreateWindowEx(
+		0, L"BUTTON", L"Patch",
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
+		10, 20, 60, 30, hWnd, HMENU(1), hInstance, nullptr
+	);
 	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+	// Restore button
+	hwndRestore = CreateWindowEx(
+		0, L"BUTTON", L"Restore",
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
+		75, 20, 60, 30, hWnd, HMENU(2), hInstance, nullptr
+	);
 	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+	// ComboBox
+	combo = CreateWindowEx(
+		0, L"COMBOBOX", nullptr,
+		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
+		160, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
+	);
+	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
 	for (const auto& item : {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
