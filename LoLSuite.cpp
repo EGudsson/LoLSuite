@@ -685,17 +685,24 @@ int wWinMain(
 	combo = CreateWindowEx(
 		0, L"COMBOBOX", nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
-		160, 20, 240, 300, hWnd, nullptr, hInstance, nullptr
+		160, 20, 240, 210, hWnd, nullptr, hInstance, nullptr
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-	for (const auto& item : {
+	// Add items
+	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered", L"Game Clients", L"Clear Caches"
-		}) {
+		L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered",
+		L"Game Clients", L"Clear Caches"
+	};
+
+	for (const auto& item : items) {
 		SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
 	}
+
+	// Select "League of Legends" (index 0)
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
+
 
 	bool isDX9Installed = false;
 	HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
