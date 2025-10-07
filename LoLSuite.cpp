@@ -133,11 +133,21 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 	ExecuteAndWait(sei, wait);
 }
 
-std::wstring browse(const std::wstring& path) {
-	std::wstring message = L"Select: " + path;
+std::wstring browse(const std::wstring& pathLabel) {
+	std::wstring iniPath = (std::filesystem::current_path() / L"config.ini").wstring();
+	wchar_t savedPath[MAX_PATH] = {};
+	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
+
+	if (wcslen(savedPath) > 0) {
+		b[0] = savedPath;
+		return b[0];
+	}
+
+	std::wstring message = L"Select: " + pathLabel;
 	MessageBoxEx(nullptr, message.c_str(), L"LoLSuite", MB_OK, 0);
 	b[0].clear();
 	std::wstring selectedPath;
+
 	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 	if (FAILED(hrInit)) return selectedPath;
 
@@ -164,6 +174,13 @@ std::wstring browse(const std::wstring& path) {
 
 	CoUninitialize();
 	b[0] = selectedPath;
+
+	// Save selected path to INI
+	if (!b[0].empty()) {
+		WritePrivateProfileString(pathLabel.c_str(), L"path", b[0].c_str(), iniPath.c_str());
+	}
+
+	return b[0];
 }
 
 static void serviceman(const std::wstring& serviceName, bool start, bool restart = false) {
