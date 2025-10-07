@@ -15,8 +15,7 @@
 
 int cb_index = 0;
 std::vector<std::wstring> b(200);
-HWND hwndPatch, hwndRestore, combo;
-
+HWND hWnd, hwndPatch, hwndRestore, combo;
 static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
 }
@@ -577,33 +576,40 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
-	case WM_CTLCOLORMSGBOX:
 	case WM_CTLCOLORSCROLLBAR: {
 		HDC hdc = reinterpret_cast<HDC>(wParam);
 		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, kTextColor);
-		static HBRUSH hBrush = CreateSolidBrush(kBackground);
+		SetTextColor(hdc, kTextColor); // e.g., RGB(220, 220, 220)
+		static HBRUSH hBrush = CreateSolidBrush(kBackground); // e.g., RGB(30, 30, 30)
 		return reinterpret_cast<INT_PTR>(hBrush);
 	}
 
+
 	case WM_DRAWITEM: {
 		const auto* dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
-		const bool isComboOrList = (dis->CtlType == ODT_COMBOBOX || dis->CtlType == ODT_LISTBOX);
 
-		HBRUSH hBrush = CreateSolidBrush(kBackground);
-		FillRect(dis->hDC, &dis->rcItem, hBrush);
-		DeleteObject(hBrush);
 
-		wchar_t text[256] = {};
-		if (isComboOrList) {
-			SendMessage(dis->hwndItem, CB_GETLBTEXT, dis->itemID, reinterpret_cast<LPARAM>(text));
-			DrawTextItem(dis->hDC, dis->rcItem, text, DT_LEFT | DT_VCENTER | DT_SINGLELINE, kTextColor);
-		}
-		else {
+		// Handle owner-drawn buttons
+		if (dis && dis->CtlType == ODT_BUTTON) {
+			COLORREF bgColor = (dis->itemState & ODS_SELECTED) ? RGB(0, 120, 215) : kBackground;
+			COLORREF textColor = (dis->itemState & ODS_SELECTED) ? RGB(255, 255, 255) : kButtonText;
+
+			HBRUSH hBrush = CreateSolidBrush(bgColor);
+			FillRect(dis->hDC, &dis->rcItem, hBrush);
+			DeleteObject(hBrush);
+
+			SetTextColor(dis->hDC, textColor);
+			SetBkMode(dis->hDC, TRANSPARENT);
+
+			wchar_t text[256] = {};
 			GetWindowText(dis->hwndItem, text, _countof(text));
-			DrawTextItem(dis->hDC, dis->rcItem, text, DT_CENTER | DT_VCENTER, kButtonText);
+
+			RECT textRect = dis->rcItem;
+			DrawText(dis->hDC, text, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			return TRUE;
 		}
-		return TRUE;
+
+		return FALSE;
 	}
 
 	case WM_CLOSE:
@@ -618,6 +624,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 }
+
 int wWinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -634,28 +641,39 @@ int wWinMain(
 	LimitInstance GUID(L"{3025d31f-c76e-435c-a4b48-9d084fa9f5ea}");
 	if (LimitInstance::AnotherInstanceRunning()) return 0;
 
+	constexpr int windowWidth = 420;
+	constexpr int windowHeight = 160; // or higher depending on ComboBox height
+
+
+	constexpr int controlHeight = 30;
+	constexpr int controlTop = 20;
+	constexpr int controlCount = 3;
+	constexpr int controlSpacing = 20; // space between controls
+
+	// Calculate available width after spacing
+	int totalSpacing = controlSpacing * (controlCount + 1); // 4 gaps: left, between, right
+	int controlWidth = (windowWidth - totalSpacing) / controlCount;
+
+	constexpr int buttonWidth = 60;
+	constexpr int buttonSpacing = 15;
+
+	// X positions
+	int xPatch = buttonSpacing;
+	int xRestore = xPatch + buttonWidth + buttonSpacing;
+	int xCombo = xRestore + controlWidth + controlSpacing;
+
+
+
+
 	WNDCLASSEXW wcex{
-		sizeof(wcex), CS_HREDRAW | CS_VREDRAW, WndProc,
-		0, 0, hInstance,
-		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-		LoadCursor(nullptr, IDC_ARROW),
-		CreateSolidBrush(RGB(32, 32, 32)),
-		nullptr, L"LoLSuite", nullptr
+			sizeof(wcex), CS_HREDRAW | CS_VREDRAW, WndProc,
+			0, 0, hInstance,
+			LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
+			LoadCursor(nullptr, IDC_ARROW),
+			CreateSolidBrush(RGB(32, 32, 32)),
+			nullptr, L"LoLSuite", nullptr
 	};
 	RegisterClassEx(&wcex);
-
-	constexpr int windowWidth = 420;
-	constexpr int windowHeight = 100;
-
-	HWND hWnd = CreateWindowEx(
-		WS_EX_LAYERED, // Add this for transparency support
-		L"LoLSuite", L"LoLSuite FPS Booster",
-		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
-		nullptr, nullptr, hInstance, nullptr
-	);
-
-	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA); // 229 ≈ 90% opacity
 
 	// Common font for all controls
 	HFONT hFont = CreateFont(
@@ -665,27 +683,39 @@ int wWinMain(
 		L"Segoe UI"
 	);
 
-	// Patch button
+	hWnd = CreateWindowEx(
+		WS_EX_LAYERED, // Add this for transparency support
+		L"LoLSuite", L"FPS Booster (https://lolsuite.org)",
+		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
+		nullptr, nullptr, hInstance, nullptr
+	);
+
+	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA); // 229 ≈ 90% opacity
+
 	hwndPatch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
-		10, 20, 60, 30, hWnd, HMENU(1), hInstance, nullptr
+		xPatch, controlTop, buttonWidth, controlHeight,
+		hWnd, HMENU(1), hInstance, nullptr
 	);
 	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
-
-	// Restore button
 	hwndRestore = CreateWindowEx(
 		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-		75, 20, 60, 30, hWnd, HMENU(2), hInstance, nullptr
+		xRestore, controlTop, buttonWidth, controlHeight,
+		hWnd, HMENU(2), hInstance, nullptr
 	);
 	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-	// ComboBox
+	int comboLeft = buttonSpacing;
+	int comboTop = controlTop + controlHeight + controlSpacing;
+	int comboWidth = windowWidth - (2 * buttonSpacing); // full width minus margins
 	combo = CreateWindowEx(
-		0, L"COMBOBOX", nullptr,
-		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE,
-		160, 20, 240, 210, hWnd, nullptr, hInstance, nullptr
+		0, WC_COMBOBOX, nullptr,
+		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+		comboLeft, comboTop, comboWidth, 210,
+		hWnd, (HMENU)3, hInstance, nullptr
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
@@ -702,7 +732,6 @@ int wWinMain(
 
 	// Select "League of Legends" (index 0)
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
-
 
 	bool isDX9Installed = false;
 	HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
