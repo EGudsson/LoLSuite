@@ -8,8 +8,6 @@
 #include <wininet.h>
 #include <filesystem>
 #include <vector>
-#include <functional>
-#include <mutex>
 #include <fstream>
 #include "resource.h"
 
@@ -59,7 +57,7 @@ static void dl(const std::wstring& url, int idx) {
 	}
 }
 
-static void KillProc(const std::wstring& name) {
+static void ProcKill(const std::wstring& name) {
 	auto closeHandle = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
 	std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
 		snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), closeHandle);
@@ -180,7 +178,7 @@ static void serviceman(const std::wstring& serviceName, bool start, bool restart
 	if (restart) {
 		if (ControlService(svc.get(), SERVICE_CONTROL_STOP, &status)) {
 			while (status.dwCurrentState != SERVICE_STOPPED) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				Sleep(500);
 				if (!QueryServiceStatus(svc.get(), &status)) break;
 			}
 		}
@@ -192,7 +190,7 @@ static void serviceman(const std::wstring& serviceName, bool start, bool restart
 	else {
 		if (ControlService(svc.get(), SERVICE_CONTROL_STOP, &status)) {
 			while (status.dwCurrentState != SERVICE_STOPPED) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				Sleep(500);
 				if (!QueryServiceStatus(svc.get(), &status)) break;
 			}
 		}
@@ -206,7 +204,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
 			L"RiotClientCrashHandler.exe", L"LeagueCrashHandler64.exe"
-			}) KillProc(proc);
+			}) ProcKill(proc);
 		CPath(56, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
 		APath(0, L"League of Legends");
 		for (const auto& [i, f] : std::vector<std::pair<int, std::wstring>>{
@@ -233,7 +231,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 	}
 	else if (game == L"dota2") {
 		browse(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta");
-		KillProc(L"dota2.exe");
+		ProcKill(L"dota2.exe");
 		APath(0, L"game\\bin\\win64");
 		CPath(1, 0, L"embree3.dll");
 		CPath(2, 0, L"d3dcompiler_47.dll");
@@ -245,7 +243,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		browse(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\SMITE 2");
 		APath(0, L"Windows");
 		for (const auto& proc : { L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" })
-			KillProc(proc);
+			ProcKill(proc);
 		CPath(8, 0, L"Engine\\Binaries\\Win64");
 		CPath(7, 0, L"Hemingway\\Binaries\\Win64");
 		CPath(1, 8, L"tbb.dll");
@@ -261,7 +259,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 	else if (game == L"mgsΔ") {
 		browse(L"METAL GEAR SOLID Δ Install Base Dir");
 		for (const auto& proc : { L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" })
-			KillProc(proc);
+			ProcKill(proc);
 		CPath(8, 0, L"MGSDelta\\Binaries\\Win64");
 		CPath(7, 0, L"MGSDelta_Nightmare\\Binaries\\Win64");
 		CPath(1, 8, L"tbb.dll");
@@ -281,7 +279,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 	else if (game == L"blands4") {
 		browse(L"Borderlands 4 Install Base Dir");
 		for (const auto& proc : { L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" })
-			KillProc(proc);
+			ProcKill(proc);
 		CPath(8, 0, L"OakGame\\Binaries\\Win64");
 		CPath(1, 8, L"tbb.dll");
 		CPath(2, 8, L"tbbmalloc.dll");
@@ -299,7 +297,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 	else if (game == L"oblivionr") {
 		browse(L"Oblivion Remastered Install Base Dir");
 		for (const auto& proc : { L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" })
-			KillProc(proc);
+			ProcKill(proc);
 
 		CPath(7, 0, L"Engine\\Binaries\\Win64");
 		CPath(3, 7, L"tbb.dll");
@@ -317,10 +315,9 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 		Run(L"steam://rungameid/2623190", L"", false);
 	}
-	exit(0);
 }
 
-static void manageTasks(const std::wstring& task) {
+static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
 		serviceman(L"W32Time", false, true);
 		for (const auto& proc : {
@@ -328,7 +325,7 @@ static void manageTasks(const std::wstring& task) {
 			L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe",
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
 			L"Minecraft.Windows.exe"
-			}) KillProc(proc);
+			}) ProcKill(proc);
 		PowerShell({
 			L"w32tm /resync",
 			L"powercfg -restoredefaultschemes",
@@ -396,10 +393,10 @@ static void manageTasks(const std::wstring& task) {
 			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
 		PowerShell(cmds);
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		while (!std::filesystem::exists(configPath)) Sleep(100);
 		for (const auto& proc : {
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
-			}) KillProc(proc);
+			}) ProcKill(proc);
 		std::wifstream in(configPath);
 		in.imbue(std::locale("en_US.UTF-8"));
 		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
@@ -441,7 +438,7 @@ static void manageTasks(const std::wstring& task) {
 		}
 
 		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe" }) {
-			KillProc(proc);
+			ProcKill(proc);
 		}
 
 		ShellExecuteW(nullptr, L"open", L"RunDll32.exe",
@@ -511,55 +508,38 @@ static void manageTasks(const std::wstring& task) {
 			ShellExecuteEx(&sei);
 		}
 	}
-	exit(0);
 }
 
 static void handleCommand(int cb, bool flag) {
-	static const std::unordered_map<int, std::function<void()>> commandMap = {
-		{0, [flag]() { manageGame(L"leagueoflegends", flag); }},
-		{1, [flag]() { manageGame(L"dota2", flag); }},
-		{2, [flag]() { manageGame(L"smite2", flag); }},
-		{3, [flag]() { manageGame(L"mgsΔ", flag); }},
-		{4, [flag]() { manageGame(L"blands4", flag); }},
-		{5, [flag]() { manageGame(L"oblivionr", flag); }},
-		{6, []() { manageTasks(L"cafe"); }},
-		{7, []() { manageTasks(L"clear_caches"); } }
-	};
-	if (auto it = commandMap.find(cb); it != commandMap.end()) {
-		it->second();
+	switch (cb) {
+	case 0: manageGame(L"leagueoflegends", flag); break;
+	case 1: manageGame(L"dota2", flag); break;
+	case 2: manageGame(L"smite2", flag); break;
+	case 3: manageGame(L"mgsΔ", flag); break;
+	case 4: manageGame(L"blands4", flag); break;
+	case 5: manageGame(L"oblivionr", flag); break;
+	case 6: manageTask(L"cafe"); break;
+	case 7: manageTask(L"clear_caches"); break;
+	default: break;
 	}
 }
-
-static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	constexpr COLORREF kTextColor = RGB(255, 255, 255);
 	constexpr COLORREF kButtonText = RGB(200, 200, 200);
 	constexpr COLORREF kBackground = RGB(30, 30, 30);
-	constexpr UINT ID_RUN = 1;
-	constexpr UINT ID_RUN_SILENT = 2;
+	static HBRUSH hBrush = CreateSolidBrush(kBackground);
 
-	auto DrawTextItem = [](HDC hdc, RECT rc, const wchar_t* text, UINT format, COLORREF color) {
-		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, color);
-		DrawText(hdc, text, -1, &rc, format);
-		};
-
-	switch (message) {
+	switch (msg) {
 	case WM_COMMAND: {
-		const UINT id = LOWORD(wParam);
-		const UINT code = HIWORD(wParam);
-
-		if (code == CBN_SELCHANGE) {
+		UINT id = LOWORD(wParam), code = HIWORD(wParam);
+		if (code == CBN_SELCHANGE)
 			cb_index = SendMessage(reinterpret_cast<HWND>(lParam), CB_GETCURSEL, 0, 0);
-		}
 
-		switch (id) {
-		case ID_RUN:
-			handleCommand(cb_index, false);
+		if (id == 1 || id == 2) {
+			handleCommand(cb_index, id == 2);
 			return 0;
-		case ID_RUN_SILENT:
-			handleCommand(cb_index, true);
-			return 0;
-		case IDM_EXIT:
+		}
+		if (id == IDM_EXIT) {
 			DestroyWindow(hWnd);
 			return 0;
 		}
@@ -579,34 +559,28 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_CTLCOLORSCROLLBAR: {
 		HDC hdc = reinterpret_cast<HDC>(wParam);
 		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, kTextColor); // e.g., RGB(220, 220, 220)
-		static HBRUSH hBrush = CreateSolidBrush(kBackground); // e.g., RGB(30, 30, 30)
+		SetTextColor(hdc, kTextColor);
 		return reinterpret_cast<INT_PTR>(hBrush);
 	}
 
 	case WM_DRAWITEM: {
-		const auto* dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
-
-		// Handle owner-drawn buttons
+		auto* dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
 		if (dis && dis->CtlType == ODT_BUTTON) {
-			COLORREF bgColor = (dis->itemState & ODS_SELECTED) ? RGB(0, 120, 215) : kBackground;
-			COLORREF textColor = (dis->itemState & ODS_SELECTED) ? RGB(255, 255, 255) : kButtonText;
+			COLORREF bg = (dis->itemState & ODS_SELECTED) ? RGB(0, 120, 215) : kBackground;
+			COLORREF fg = (dis->itemState & ODS_SELECTED) ? RGB(255, 255, 255) : kButtonText;
 
-			HBRUSH hBrush = CreateSolidBrush(bgColor);
-			FillRect(dis->hDC, &dis->rcItem, hBrush);
-			DeleteObject(hBrush);
+			HBRUSH brush = CreateSolidBrush(bg);
+			FillRect(dis->hDC, &dis->rcItem, brush);
+			DeleteObject(brush);
 
-			SetTextColor(dis->hDC, textColor);
+			SetTextColor(dis->hDC, fg);
 			SetBkMode(dis->hDC, TRANSPARENT);
 
 			wchar_t text[256] = {};
 			GetWindowText(dis->hwndItem, text, _countof(text));
-
-			RECT textRect = dis->rcItem;
-			DrawText(dis->hDC, text, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 			return TRUE;
 		}
-
 		return FALSE;
 	}
 
@@ -619,9 +593,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		return 0;
 
 	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		return DefWindowProc(hWnd, msg, wParam, lParam);
 	}
 }
+
 
 int wWinMain(
 	_In_ HINSTANCE hInstance,
@@ -629,8 +604,6 @@ int wWinMain(
 	_In_ LPWSTR lpCmdLine,
 	_In_ int nShowCmd
 ) {
-	MSG msg;
-
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
 		CloseClipboard();
@@ -664,6 +637,7 @@ int wWinMain(
 			CreateSolidBrush(RGB(32, 32, 32)),
 			nullptr, L"LoLSuite", nullptr
 	};
+
 	RegisterClassEx(&wcex);
 
 	HFONT hFont = CreateFont(
@@ -674,14 +648,14 @@ int wWinMain(
 	);
 
 	hWnd = CreateWindowEx(
-		WS_EX_LAYERED, // Add this for transparency support
+		WS_EX_LAYERED,
 		L"LoLSuite", L"FPS Booster (https://lolsuite.org)",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
 		nullptr, nullptr, hInstance, nullptr
 	);
 
-	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA); // 229 ≈ 90% opacity
+	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
 	hwndPatch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
@@ -707,7 +681,6 @@ int wWinMain(
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-	// Add items
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
 		L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered",
@@ -912,7 +885,7 @@ int wWinMain(
 		}
 
 		if (allFilesPresent) {
-			KillProc(L"DXSETUP.exe");
+			ProcKill(L"DXSETUP.exe");
 			Run(b[baseIndex + 63], L"/silent", true);
 		}
 
@@ -921,6 +894,7 @@ int wWinMain(
 
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
+	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
