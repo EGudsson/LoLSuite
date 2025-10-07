@@ -13,6 +13,25 @@
 #include <fstream>
 #include "resource.h"
 
+class LimitInstance {
+	HANDLE Mutex;
+public:
+	explicit LimitInstance(const std::wstring& mutexName)
+		: Mutex(CreateMutex(nullptr, FALSE, mutexName.c_str())) {
+	}
+	~LimitInstance() {
+		if (Mutex) {
+			ReleaseMutex(Mutex);
+			CloseHandle(Mutex);
+		}
+	}
+	LimitInstance(const LimitInstance&) = delete;
+	LimitInstance& operator=(const LimitInstance&) = delete;
+	static bool AnotherInstanceRunning() {
+		return GetLastError() == ERROR_ALREADY_EXISTS;
+	}
+};
+
 int cb_index = 0;
 std::vector<std::wstring> b(200);
 HWND hWnd, hwndPatch, hwndRestore, combo;
@@ -115,25 +134,6 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 	};
 	ExecuteAndWait(sei, wait);
 }
-
-class LimitInstance {
-	HANDLE Mutex;
-public:
-	explicit LimitInstance(const std::wstring& mutexName)
-		: Mutex(CreateMutex(nullptr, FALSE, mutexName.c_str())) {
-	}
-	~LimitInstance() {
-		if (Mutex) {
-			ReleaseMutex(Mutex);
-			CloseHandle(Mutex);
-		}
-	}
-	LimitInstance(const LimitInstance&) = delete;
-	LimitInstance& operator=(const LimitInstance&) = delete;
-	static bool AnotherInstanceRunning() {
-		return GetLastError() == ERROR_ALREADY_EXISTS;
-	}
-};
 
 std::wstring browse(const std::wstring& path) {
 	std::wstring message = L"Select: " + path;
@@ -584,10 +584,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		return reinterpret_cast<INT_PTR>(hBrush);
 	}
 
-
 	case WM_DRAWITEM: {
 		const auto* dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
-
 
 		// Handle owner-drawn buttons
 		if (dis && dis->CtlType == ODT_BUTTON) {
@@ -643,27 +641,20 @@ int wWinMain(
 
 	constexpr int windowWidth = 420;
 	constexpr int windowHeight = 160; // or higher depending on ComboBox height
-
-
 	constexpr int controlHeight = 30;
 	constexpr int controlTop = 20;
 	constexpr int controlCount = 3;
 	constexpr int controlSpacing = 20; // space between controls
-
-	// Calculate available width after spacing
 	int totalSpacing = controlSpacing * (controlCount + 1); // 4 gaps: left, between, right
 	int controlWidth = (windowWidth - totalSpacing) / controlCount;
-
 	constexpr int buttonWidth = 60;
 	constexpr int buttonSpacing = 15;
-
-	// X positions
 	int xPatch = buttonSpacing;
 	int xRestore = xPatch + buttonWidth + buttonSpacing;
 	int xCombo = xRestore + controlWidth + controlSpacing;
-
-
-
+	int comboLeft = buttonSpacing;
+	int comboTop = controlTop + controlHeight + controlSpacing;
+	int comboWidth = windowWidth - (2 * buttonSpacing);
 
 	WNDCLASSEXW wcex{
 			sizeof(wcex), CS_HREDRAW | CS_VREDRAW, WndProc,
@@ -675,7 +666,6 @@ int wWinMain(
 	};
 	RegisterClassEx(&wcex);
 
-	// Common font for all controls
 	HFONT hFont = CreateFont(
 		-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -700,6 +690,7 @@ int wWinMain(
 		hWnd, HMENU(1), hInstance, nullptr
 	);
 	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
+
 	hwndRestore = CreateWindowEx(
 		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
@@ -708,9 +699,6 @@ int wWinMain(
 	);
 	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-	int comboLeft = buttonSpacing;
-	int comboTop = controlTop + controlHeight + controlSpacing;
-	int comboWidth = windowWidth - (2 * buttonSpacing); // full width minus margins
 	combo = CreateWindowEx(
 		0, WC_COMBOBOX, nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
@@ -729,8 +717,6 @@ int wWinMain(
 	for (const auto& item : items) {
 		SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
 	}
-
-	// Select "League of Legends" (index 0)
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
 
 	bool isDX9Installed = false;
