@@ -175,7 +175,6 @@ std::wstring browse(const std::wstring& pathLabel) {
 	CoUninitialize();
 	b[0] = selectedPath;
 
-	// Save selected path to INI
 	if (!b[0].empty()) {
 		WritePrivateProfileString(pathLabel.c_str(), L"path", b[0].c_str(), iniPath.c_str());
 	}
@@ -216,7 +215,7 @@ static void serviceman(const std::wstring& serviceName, bool start, bool restart
 
 static void manageGame(const std::wstring& game, bool restore) {
 	if (game == L"leagueoflegends") {
-		browse(L"C:\\Riot Games");
+		browse(L"/Riot Games Base Folder");
 		for (const auto& proc : {
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
@@ -225,9 +224,9 @@ static void manageGame(const std::wstring& game, bool restore) {
 		CPath(56, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
 		APath(0, L"League of Legends");
 		for (const auto& [i, f] : std::vector<std::pair<int, std::wstring>>{
-			{42,L"concrt140.dll"}, {43,L"d3dcompiler_47.dll"}, {44,L"msvcp140.dll"},
-			{45,L"msvcp140_1.dll"}, {46,L"msvcp140_2.dll"}, {47,L"msvcp140_codecvt_ids.dll"},
-			{48,L"ucrtbase.dll"}, {49,L"vcruntime140.dll"}, {50,L"vcruntime140_1.dll"}
+			{42, L"concrt140.dll"}, {43, L"d3dcompiler_47.dll"}, {44, L"msvcp140.dll"},
+			{45, L"msvcp140_1.dll"}, {46, L"msvcp140_2.dll"}, {47, L"msvcp140_codecvt_ids.dll"},
+			{48, L"ucrtbase.dll"}, {49, L"vcruntime140.dll"}, {50, L"vcruntime140_1.dll"}
 			}) {
 			CPath(i, 0, f);
 			dl(restore ? L"restore/lol/" + f : L"patch/" + f, i);
@@ -247,7 +246,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(b[56], L"", false);
 	}
 	else if (game == L"dota2") {
-		browse(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta");
+		browse(L"DOTA2 Base Dir");
 		ProcKill(L"dota2.exe");
 		APath(0, L"game\\bin\\win64");
 		CPath(1, 0, L"embree3.dll");
@@ -257,7 +256,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(L"steam://rungameid/570//-high -dx11 -fullscreen/", L"", false);
 	}
 	else if (game == L"smite2") {
-		browse(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\SMITE 2");
+		browse(L"SMITE2 Base Dir");
 		APath(0, L"Windows");
 		for (const auto& proc : { L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" })
 			ProcKill(proc);
@@ -274,7 +273,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(L"steam://rungameid/2437170", L"", false);
 	}
 	else if (game == L"mgsΔ") {
-		browse(L"METAL GEAR SOLID Δ Install Base Dir");
+		browse(L"METAL GEAR SOLID Delta Base Dir");
 		for (const auto& proc : { L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" })
 			ProcKill(proc);
 		CPath(8, 0, L"MGSDelta\\Binaries\\Win64");
@@ -294,7 +293,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(L"steam://rungameid/2417610", L"", false);
 	}
 	else if (game == L"blands4") {
-		browse(L"Borderlands 4 Install Base Dir");
+		browse(L"Borderlands 4 Base Dir");
 		for (const auto& proc : { L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" })
 			ProcKill(proc);
 		CPath(8, 0, L"OakGame\\Binaries\\Win64");
@@ -312,7 +311,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(L"steam://rungameid/1285190", L"", false);
 	}
 	else if (game == L"oblivionr") {
-		browse(L"Oblivion Remastered Install Base Dir");
+		browse(L"Oblivion Remastered Base Dir");
 		for (const auto& proc : { L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" })
 			ProcKill(proc);
 
