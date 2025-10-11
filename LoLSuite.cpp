@@ -134,7 +134,7 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 }
 
 std::wstring browse(const std::wstring& pathLabel) {
-	std::wstring iniPath = (std::filesystem::current_path() / L"config.ini").wstring();
+	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.ini").wstring();
 	wchar_t savedPath[MAX_PATH] = {};
 	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
 
@@ -215,7 +215,7 @@ static void serviceman(const std::wstring& serviceName, bool start, bool restart
 
 static void manageGame(const std::wstring& game, bool restore) {
 	if (game == L"leagueoflegends") {
-		browse(L"/Riot Games Base Folder");
+		browse(L"<drive>:/Riot Games Base Folder");
 		for (const auto& proc : {
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
@@ -246,7 +246,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(b[56], L"", false);
 	}
 	else if (game == L"dota2") {
-		browse(L"DOTA2 Base Dir");
+		browse(L"Steam DOTA2 Base Dir");
 		ProcKill(L"dota2.exe");
 		APath(0, L"game\\bin\\win64");
 		CPath(1, 0, L"embree3.dll");
@@ -642,7 +642,7 @@ int wWinMain(
 	int xRestore = xPatch + buttonWidth + buttonSpacing;
 	int xCombo = xRestore + controlWidth + controlSpacing;
 	int comboLeft = buttonSpacing;
-	int comboTop = controlTop + controlHeight + controlSpacing;
+	int comboTop = controlTop + controlHeight + 10; // was + controlSpacing
 	int comboWidth = windowWidth - (2 * buttonSpacing);
 
 	WNDCLASSEXW wcex{
