@@ -31,7 +31,7 @@ public:
 };
 
 int cb_index = 0;
-std::vector<std::wstring> b(200);
+std::vector<std::wstring> b(158);
 HWND hWnd, hwndPatch, hwndRestore, combo;
 static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
@@ -221,29 +221,29 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
 			L"RiotClientCrashHandler.exe", L"LeagueCrashHandler64.exe"
 			}) ProcKill(proc);
-		CPath(56, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
+		CPath(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
 		APath(0, L"League of Legends");
 		for (const auto& [i, f] : std::vector<std::pair<int, std::wstring>>{
-			{42, L"concrt140.dll"}, {43, L"d3dcompiler_47.dll"}, {44, L"msvcp140.dll"},
-			{45, L"msvcp140_1.dll"}, {46, L"msvcp140_2.dll"}, {47, L"msvcp140_codecvt_ids.dll"},
-			{48, L"ucrtbase.dll"}, {49, L"vcruntime140.dll"}, {50, L"vcruntime140_1.dll"}
+			{2, L"concrt140.dll"}, {3, L"d3dcompiler_47.dll"}, {4, L"msvcp140.dll"},
+			{5, L"msvcp140_1.dll"}, {6, L"msvcp140_2.dll"}, {7, L"msvcp140_codecvt_ids.dll"},
+			{8, L"ucrtbase.dll"}, {9, L"vcruntime140.dll"}, {10, L"vcruntime140_1.dll"}
 			}) {
 			CPath(i, 0, f);
 			dl(restore ? L"restore/lol/" + f : L"patch/" + f, i);
 		}
-		CPath(51, 0, L"Game");
-		CPath(53, 51, L"D3DCompiler_47.dll");
-		CPath(55, 51, L"tbb.dll");
-		CPath(54, 0, L"d3dcompiler_47.dll");
+		CPath(11, 0, L"Game");
+		CPath(13, 11, L"D3DCompiler_47.dll");
+		CPath(12, 11, L"tbb.dll");
+		CPath(14, 0, L"d3dcompiler_47.dll");
 		if (restore)
-			std::filesystem::remove(b[55]);
+			std::filesystem::remove(b[12]);
 		else
-			dl(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 55);
+			dl(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
 		auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" :
 			(x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
-		dl(d3dPath, 53);
-		dl(d3dPath, 54);
-		Run(b[56], L"", false);
+		dl(d3dPath, 13);
+		dl(d3dPath, 14);
+		Run(b[1], L"", false);
 	}
 	else if (game == L"dota2") {
 		browse(L"Steam DOTA2 Base Dir");
