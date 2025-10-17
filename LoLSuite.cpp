@@ -585,13 +585,24 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			COLORREF bg = (dis->itemState & ODS_SELECTED) ? RGB(0, 120, 215) : kBackground;
 			COLORREF fg = (dis->itemState & ODS_SELECTED) ? RGB(255, 255, 255) : kButtonText;
 
+			// Fill background
 			HBRUSH brush = CreateSolidBrush(bg);
 			FillRect(dis->hDC, &dis->rcItem, brush);
 			DeleteObject(brush);
 
+			// Draw white rounded outline
+			HPEN hPen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+			HGDIOBJ oldPen = SelectObject(dis->hDC, hPen);
+			HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
+			RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top, dis->rcItem.right, dis->rcItem.bottom, 10, 10);
+			SelectObject(dis->hDC, oldBrush);
+			SelectObject(dis->hDC, oldPen);
+			DeleteObject(hPen);
+
+
+			// Draw text
 			SetTextColor(dis->hDC, fg);
 			SetBkMode(dis->hDC, TRANSPARENT);
-
 			wchar_t text[256] = {};
 			GetWindowText(dis->hwndItem, text, _countof(text));
 			DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -599,6 +610,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		}
 		return FALSE;
 	}
+
 
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
@@ -636,7 +648,7 @@ int wWinMain(
 	constexpr int controlSpacing = 20; // space between controls
 	int totalSpacing = controlSpacing * (controlCount + 1); // 4 gaps: left, between, right
 	int controlWidth = (windowWidth - totalSpacing) / controlCount;
-	constexpr int buttonWidth = 60;
+	constexpr int buttonWidth = 63;
 	constexpr int buttonSpacing = 15;
 	int xPatch = buttonSpacing;
 	int xRestore = xPatch + buttonWidth + buttonSpacing;
