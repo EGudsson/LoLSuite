@@ -483,46 +483,7 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		const wchar_t* regPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches";
-		HKEY hKey;
-		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, regPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-			DWORD enable = 1;
-			wchar_t subKeyName[256];
-			DWORD subKeyLen;
-			for (DWORD i = 0;; ++i) {
-				subKeyLen = 256;
-				if (RegEnumKeyEx(hKey, i, subKeyName, &subKeyLen, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS)
-					break;
-				std::wstring fullPath = std::wstring(regPath) + L"\\" + subKeyName;
-				HKEY hSubKey;
-				if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, fullPath.c_str(), 0, KEY_SET_VALUE, &hSubKey) == ERROR_SUCCESS) {
-					RegSetValueEx(hSubKey, L"StateFlags001", 0, REG_DWORD,
-						reinterpret_cast<const BYTE*>(&enable), sizeof(enable));
-					RegCloseKey(hSubKey);
-				}
-			}
-			RegCloseKey(hKey);
-		}
-
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-
-		DWORD driveMask = GetLogicalDrives();
-		for (wchar_t drive = L'A'; drive <= L'Z'; ++drive) {
-			if (!(driveMask & (1 << (drive - L'A')))) continue;
-			std::wstring root = std::wstring(1, drive) + L":\\";
-			if (GetDriveType(root.c_str()) != DRIVE_FIXED) continue;
-
-			SHELLEXECUTEINFO sei{
-				.cbSize = sizeof(SHELLEXECUTEINFO),
-				.fMask = SEE_MASK_NOASYNC,
-				.lpVerb = L"open",
-				.lpFile = L"cleanmgr.exe",
-				.lpParameters = L"/sagerun:1",
-				.lpDirectory = root.c_str(),
-				.nShow = SW_SHOWNORMAL
-			};
-			ShellExecuteEx(&sei);
-		}
 	}
 }
 
