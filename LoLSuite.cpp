@@ -405,7 +405,7 @@ static void manageTask(const std::wstring& task) {
 			L"winget install Oracle.JDK.25 --accept-package-agreements",
 			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
 		};
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24" })
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
 			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
 		PowerShell(cmds);
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
