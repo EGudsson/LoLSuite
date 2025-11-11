@@ -350,9 +350,8 @@ static void manageTask(const std::wstring& task) {
 			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
 			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-			L"Get-AppxPackage -AllUsers | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppxManifest.xml\" }",
 			L"winget source update",
-			L"winget upgrade --all --accept-package-agreements --accept-source-agreements"
+			L"Get-AppxPackage -AllUsers | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppxManifest.xml\" }"
 			});
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
 		for (auto& s : services) serviceman(s, false);
@@ -383,8 +382,22 @@ static void manageTask(const std::wstring& task) {
 			L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
 			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.VCRedist.2005.x64"
 		};
+
+		std::vector<std::wstring> filteredApps;
+		bool is64Bit = x64();
+
+		for (const auto& app : apps) {
+			// Skip x64 vcredist if system is 32-bit
+			if (!is64Bit &&
+				app.find(L"Microsoft.VCRedist.") != std::wstring::npos &&
+				app.find(L".x64") != std::wstring::npos) {
+				continue;
+			}
+			filteredApps.push_back(app);
+		}
+
 		std::vector<std::wstring> uninstall, install;
-		for (auto& app : apps) {
+		for (auto& app : filteredApps) {
 			uninstall.push_back(L"winget uninstall " + app + L" --purge");
 			if (app != L"ElectronicArts.Origin") {
 				std::wstring cmd = L"winget install " + app + L" --accept-package-agreements --accept-source-agreements";
@@ -392,8 +405,15 @@ static void manageTask(const std::wstring& task) {
 				install.push_back(cmd);
 			}
 		}
+
+		// Wrap upgrade command in a vector
+		std::vector<std::wstring> upgrade = {
+			L"winget upgrade --all --uninstall-previous --accept-package-agreements --accept-source-agreements --include-unknown"
+		};
+
 		PowerShell(uninstall);
 		PowerShell(install);
+		PowerShell(upgrade);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -572,7 +592,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return FALSE;
 	}
 
-
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
 		return 0;
@@ -672,7 +691,7 @@ int wWinMain(
 
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ", L"Borderlands 4", L"Oblivion : Remastered",
+		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered",
 		L"Game Clients", L"Clear Caches"
 	};
 
