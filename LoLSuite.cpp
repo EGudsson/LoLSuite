@@ -8,13 +8,9 @@
 #include <shellapi.h>
 #include <urlmon.h>
 #include <wininet.h>
-
-// Standard library modules (replace includes with imports)
-import std.filesystem;
-import std.vector;
-import std.fstream;
-
-// Local resource header (still requires include)
+#include <filesystem>
+#include <vector>
+#include <fstream>
 #include "resource.h"
 
 class LimitInstance {
@@ -301,8 +297,8 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"SMITE2 Base Dir",
 			{ L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" },
 			{
-				{8, 0, L"Engine\\Binaries\\Win64"},
-				{7, 0, L"Hemingway\\Binaries\\Win64"},
+				{8, 0, L"Windows\\Engine\\Binaries\\Win64"},
+				{7, 0, L"Windows\\Hemingway\\Binaries\\Win64"},
 				{1, 8, L"tbb.dll"},
 				{2, 8, L"tbbmalloc.dll"},
 				{3, 7, L"tbb.dll"},
@@ -394,6 +390,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		};
 		ProcessGame(oblivionr, restore);
 		}
+
 }
 
 static void manageTask(const std::wstring& task) {
