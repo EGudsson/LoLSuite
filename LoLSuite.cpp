@@ -413,13 +413,21 @@ static void manageTask(const std::wstring& task) {
 		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
 		std::filesystem::remove_all(configPath);
 		configPath /= "launcher_profiles.json";
-		std::vector<std::wstring> cmds = {
-			L"winget uninstall Mojang.MinecraftLauncher --purge -h",
-			L"winget install Oracle.JDK.25 --accept-package-agreements",
-			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
-		};
+		std::vector<std::wstring> cmds;
+
+		// Uninstall Minecraft Launcher
+		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge -h");
+
+		// Uninstall all Java versions except JDK.25
 		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
 			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
+
+		// Install JDK.25
+		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
+
+		// Reinstall Minecraft Launcher
+		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
+
 		PowerShell(cmds);
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 		while (!std::filesystem::exists(configPath)) Sleep(100);
