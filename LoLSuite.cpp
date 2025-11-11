@@ -219,6 +219,40 @@ static void serviceman(const std::wstring& serviceName, bool start, bool restart
 	}
 }
 
+struct FileOp {
+	int dstId;
+	int srcId;
+	std::wstring relativePath;
+	std::wstring patchPath;
+	std::wstring restorePath;
+};
+
+struct GameConfig {
+	std::wstring name;
+	std::wstring baseDir;
+	std::vector<std::wstring> processes;
+	std::vector<std::tuple<int, int, std::wstring>> cpaths;
+	std::vector<FileOp> fileOps;
+	std::wstring steamUrl;
+};
+
+void ProcessGame(const GameConfig& config, bool restore) {
+	browse(config.baseDir);
+	for (const auto& proc : config.processes)
+		ProcKill(proc);
+
+	for (const auto& [dst, src, path] : config.cpaths)
+		CPath(dst, src, path);
+
+	for (const auto& op : config.fileOps) {
+		const std::wstring& filePath = restore ? op.restorePath : op.patchPath;
+		dl(filePath, op.dstId);
+	}
+
+	Run(config.steamUrl, L"", false);
+}
+
+
 static void manageGame(const std::wstring& game, bool restore) {
 	if (game == L"leagueoflegends") {
 		browse(L"<drive>:/Riot Games Base Folder");
@@ -262,81 +296,104 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(L"steam://rungameid/570//-high -dx11 -fullscreen/", L"", false);
 	}
 	else if (game == L"smite2") {
-		browse(L"SMITE2 Base Dir");
-		APath(0, L"Windows");
-		for (const auto& proc : { L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" })
-			ProcKill(proc);
-		CPath(8, 0, L"Engine\\Binaries\\Win64");
-		CPath(7, 0, L"Hemingway\\Binaries\\Win64");
-		CPath(1, 8, L"tbb.dll");
-		CPath(2, 8, L"tbbmalloc.dll");
-		CPath(3, 7, L"tbb.dll");
-		CPath(4, 7, L"tbbmalloc.dll");
-		dl(restore ? L"restore/smite2/tbb.dll" : L"patch/tbb.dll", 1);
-		dl(restore ? L"restore/smite2/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 2);
-		dl(restore ? L"restore/smite2/tbb.dll" : L"patch/tbb.dll", 3);
-		dl(restore ? L"restore/smite2/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
-		Run(L"steam://rungameid/2437170", L"", false);
+		GameConfig smite2{
+			L"smite2",
+			L"SMITE2 Base Dir",
+			{ L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" },
+			{
+				{8, 0, L"Engine\\Binaries\\Win64"},
+				{7, 0, L"Hemingway\\Binaries\\Win64"},
+				{1, 8, L"tbb.dll"},
+				{2, 8, L"tbbmalloc.dll"},
+				{3, 7, L"tbb.dll"},
+				{4, 7, L"tbbmalloc.dll"}
+			},
+			{
+				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/smite2/tbb.dll"},
+				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/smite2/tbbmalloc.dll"},
+				{3, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/smite2/tbb.dll"},
+				{4, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/smite2/tbbmalloc.dll"}
+			},
+			L"steam://rungameid/2437170"
+		};
+		ProcessGame(smite2, restore);
 	}
 	else if (game == L"mgsΔ") {
-		browse(L"METAL GEAR SOLID Delta Base Dir");
-		for (const auto& proc : { L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" })
-			ProcKill(proc);
-		CPath(8, 0, L"MGSDelta\\Binaries\\Win64");
-		CPath(7, 0, L"MGSDelta_Nightmare\\Binaries\\Win64");
-		CPath(1, 8, L"tbb.dll");
-		CPath(2, 8, L"tbb12.dll");
-		CPath(3, 8, L"tbbmalloc.dll");
-		CPath(4, 7, L"tbb.dll");
-		CPath(5, 7, L"tbb12.dll");
-		CPath(6, 7, L"tbbmalloc.dll");
-		dl(restore ? L"restore/mgs/tbb.dll" : L"patch/tbb.dll", 1);
-		dl(restore ? L"restore/mgs/tbb12.dll" : L"patch/tbb.dll", 2);
-		dl(restore ? L"restore/mgs/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 3);
-		dl(restore ? L"restore/mgs/tbb.dll" : L"patch/tbb.dll", 4);
-		dl(restore ? L"restore/mgs/tbb12.dll" : L"patch/tbb.dll", 5);
-		dl(restore ? L"restore/mgs/tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
-		Run(L"steam://rungameid/2417610", L"", false);
+		GameConfig mgsΔ{
+			L"mgsΔ",
+			L"SMETAL GEAR SOLID Delta Base Dir",
+			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" },
+			{
+				{8, 0, L"MGSDelta\\Binaries\\Win64"},
+				{7, 0, L"MGSDelta_Nightmare\\Binaries\\Win64"},
+				{1, 8, L"tbb.dll"},
+				{2, 8, L"tbb12.dll"},
+				{3, 8, L"tbbmalloc.dll"},
+				{4, 7, L"tbb.dll"},
+				{5, 7, L"tbb12.dll"},
+				{6, 7, L"tbbmalloc.dll"}
+			},
+			{
+				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
+				{2, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
+				{3, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
+				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
+				{5, 7, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
+				{6, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"}
+			},
+			L"steam://rungameid/2417610"
+		};
+		ProcessGame(mgsΔ, restore);
 	}
 	else if (game == L"blands4") {
-		browse(L"Borderlands 4 Base Dir");
-		for (const auto& proc : { L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" })
-			ProcKill(proc);
-		CPath(8, 0, L"OakGame\\Binaries\\Win64");
-		CPath(1, 8, L"tbb.dll");
-		CPath(2, 8, L"tbbmalloc.dll");
-		dl(restore ? L"restore/blands4/tbb.dll" : L"patch/tbb.dll", 1);
-		dl(restore ? L"restore/blands4//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 2);
-
-		CPath(7, 0, L"Engine\\Binaries\\Win64");
-		CPath(3, 7, L"tbb.dll");
-		CPath(4, 7, L"tbbmalloc.dll");
-		dl(restore ? L"restore/blands4/tbb.dll" : L"patch/tbb.dll", 3);
-		dl(restore ? L"restore/blands4//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
-
-		Run(L"steam://rungameid/1285190", L"", false);
+		GameConfig blands4{
+			L"blands4",
+			L"Borderlands 4 Base Dir",
+			{ L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" },
+			{
+				{8, 0, L"OakGame\\Binaries\\Win64"},
+				{7, 0, L"Engine\\Binaries\\Win64"},
+				{1, 8, L"tbb.dll"},
+				{2, 8, L"tbbmalloc.dll"},
+				{3, 7, L"tbb.dll"},
+				{4, 7, L"tbbmalloc.dll"}
+			},
+			{
+				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/blands4/tbb.dll"},
+				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/blands4/tbbmalloc.dll"},
+				{3, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/blands4/tbb.dll"},
+				{4, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/blands4/tbbmalloc.dll"}
+			},
+			L"steam://rungameid/1285190"
+		};
+		ProcessGame(blands4, restore);
 	}
 	else if (game == L"oblivionr") {
-		browse(L"Oblivion Remastered Base Dir");
-		for (const auto& proc : { L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" })
-			ProcKill(proc);
+		GameConfig oblivionr{
+			L"oblivionr",
+			L"Oblivion Remastered Base Dir",
+			{ L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" },
+			{
+				{8, 0, L"OblivionRemastered\\Binaries\\Win64"},
+				{7, 0, L"Engine\\Binaries\\Win64"},
+				{1, 8, L"tbb.dll"},
+				{2, 8, L"tbbmalloc.dll"},
+				{3, 8, L"tbb12.dll"},
+				{4, 7, L"tbb.dll"},
+				{5, 7, L"tbbmalloc.dll"}
+			},
+			{
+				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
+				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
+				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb12.dll"},
+				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
+				{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
 
-		CPath(7, 0, L"Engine\\Binaries\\Win64");
-		CPath(3, 7, L"tbb.dll");
-		CPath(4, 7, L"tbbmalloc.dll");
-		dl(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 3);
-		dl(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 4);
-
-		CPath(8, 0, L"OblivionRemastered\\Binaries\\Win64");
-		CPath(5, 8, L"tbb.dll");
-		CPath(6, 8, L"tbbmalloc.dll");
-		CPath(9, 8, L"tbb12.dll");
-		dl(restore ? L"restore/oblivionr/tbb.dll" : L"patch/tbb.dll", 5);
-		dl(restore ? L"restore/oblivionr//tbbmalloc.dll" : L"patch/tbbmalloc.dll", 6);
-		dl(restore ? L"restore/oblivionr/tbb12.dll" : L"patch/tbb.dll", 9);
-
-		Run(L"steam://rungameid/2623190", L"", false);
-	}
+			},
+			L"steam://rungameid/2623190"
+		};
+		ProcessGame(oblivionr, restore);
+		}
 }
 
 static void manageTask(const std::wstring& task) {
