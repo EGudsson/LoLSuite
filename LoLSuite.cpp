@@ -377,7 +377,7 @@ static void manageTask(const std::wstring& task) {
 			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
 			L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
 			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86",
-			L"Microsoft.VCRedist.2015+.x64", L"Microsoft.PowerShell", L"Microsoft.WindowsTerminal",
+			L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"Microsoft.PowerShell", L"Microsoft.WindowsTerminal",
 			L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX",
 			L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
 			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.VCRedist.2005.x64"
@@ -405,15 +405,8 @@ static void manageTask(const std::wstring& task) {
 				install.push_back(cmd);
 			}
 		}
-
-		// Wrap upgrade command in a vector
-		std::vector<std::wstring> upgrade = {
-			L"winget upgrade --all --uninstall-previous --accept-package-agreements --accept-source-agreements --include-unknown"
-		};
-
 		PowerShell(uninstall);
 		PowerShell(install);
-		PowerShell(upgrade);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
