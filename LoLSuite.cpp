@@ -1,4 +1,6 @@
 ﻿#define WIN32_LEAN_AND_MEAN
+
+// Windows API headers (still require includes)
 #include <windows.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
@@ -6,9 +8,13 @@
 #include <shellapi.h>
 #include <urlmon.h>
 #include <wininet.h>
-#include <filesystem>
-#include <vector>
-#include <fstream>
+
+// Standard library modules (replace includes with imports)
+import std.filesystem;
+import std.vector;
+import std.fstream;
+
+// Local resource header (still requires include)
 #include "resource.h"
 
 class LimitInstance {

@@ -64,7 +64,7 @@
       <FloatingPointExceptions>true</FloatingPointExceptions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <EnableModules>false</EnableModules>
+      <EnableModules>true</EnableModules>
       <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
       <CCppSupport>Cpp20Support</CCppSupport>
       <CheckUnicodeSecurity>false</CheckUnicodeSecurity>
