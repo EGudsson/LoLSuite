@@ -937,7 +937,7 @@ int wWinMain(
 		L"OCT2006_XACT_x86.cab"
 		};
 
-		for (size_t i = 0; i < files.size() && i < files.size(); ++i) {
+		for (size_t i = 0; i < files.size(); ++i) {
 			b[baseIndex + i].clear();
 			CPath(baseIndex + i, tmpIndex, files[i]);
 			dl(L"DXSETUP/" + files[i], baseIndex + i);
