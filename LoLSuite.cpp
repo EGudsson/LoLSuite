@@ -777,7 +777,6 @@ int wWinMain(
 		std::filesystem::remove_all(b[tmpIndex]);
 		std::filesystem::create_directory(b[tmpIndex]);
 
-		const size_t kFileCount = 157;
 		std::vector<std::wstring> files = {
 		L"Apr2005_d3dx9_25_x64.cab",
 		L"Apr2005_d3dx9_25_x86.cab",
@@ -938,14 +937,14 @@ int wWinMain(
 		L"OCT2006_XACT_x86.cab"
 		};
 
-		for (size_t i = 0; i < kFileCount && i < files.size(); ++i) {
+		for (size_t i = 0; i < files.size() && i < files.size(); ++i) {
 			b[baseIndex + i].clear();
 			CPath(baseIndex + i, tmpIndex, files[i]);
 			dl(L"DXSETUP/" + files[i], baseIndex + i);
 		}
 
 		bool allFilesPresent = true;
-		for (size_t i = 0; i < kFileCount; ++i) {
+		for (size_t i = 0; i < files.size(); ++i) {
 			if (!std::filesystem::exists(b[baseIndex + i])) {
 				allFilesPresent = false;
 				break;
