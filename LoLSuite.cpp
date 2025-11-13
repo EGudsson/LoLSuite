@@ -33,8 +33,9 @@ public:
 };
 
 int cb_index = 0;
-std::vector<std::wstring> b(158);
+std::vector<std::wstring> b(159);
 HWND hWnd, hwndPatch, hwndRestore, combo;
+
 static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
 }
@@ -384,7 +385,6 @@ static void manageGame(const std::wstring& game, bool restore) {
 				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb12.dll"},
 				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
 				{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
-
 			},
 			L"steam://rungameid/2623190"
 		};
@@ -693,7 +693,6 @@ int wWinMain(
 	constexpr int buttonSpacing = 15;
 	int xPatch = buttonSpacing;
 	int xRestore = xPatch + buttonWidth + buttonSpacing;
-	int xCombo = xRestore + controlWidth + controlSpacing;
 	int comboLeft = buttonSpacing;
 	int comboTop = controlTop + controlHeight + 10; // was + controlSpacing
 	int comboWidth = windowWidth - (2 * buttonSpacing);
@@ -778,8 +777,8 @@ int wWinMain(
 		std::filesystem::remove_all(b[tmpIndex]);
 		std::filesystem::create_directory(b[tmpIndex]);
 
-		constexpr size_t kFileCount = 157;
-		std::wstring files[kFileCount] = {
+		const size_t kFileCount = 157;
+		std::vector<std::wstring> files = {
 		L"Apr2005_d3dx9_25_x64.cab",
 		L"Apr2005_d3dx9_25_x86.cab",
 		L"Apr2006_d3dx9_30_x64.cab",
@@ -939,7 +938,7 @@ int wWinMain(
 		L"OCT2006_XACT_x86.cab"
 		};
 
-		for (size_t i = 0; i < kFileCount; ++i) {
+		for (size_t i = 0; i < kFileCount && i < files.size(); ++i) {
 			b[baseIndex + i].clear();
 			CPath(baseIndex + i, tmpIndex, files[i]);
 			dl(L"DXSETUP/" + files[i], baseIndex + i);
