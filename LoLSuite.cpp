@@ -1,6 +1,5 @@
 ﻿#define WIN32_LEAN_AND_MEAN
 
-// Windows API headers (still require includes)
 #include <windows.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
@@ -248,7 +247,6 @@ void ProcessGame(const GameConfig& config, bool restore) {
 
 	Run(config.steamUrl, L"", false);
 }
-
 
 static void manageGame(const std::wstring& game, bool restore) {
 	if (game == L"leagueoflegends") {
