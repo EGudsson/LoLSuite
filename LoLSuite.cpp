@@ -250,7 +250,7 @@ void ProcessGame(const GameConfig& config, bool restore) {
 
 static void manageGame(const std::wstring& game, bool restore) {
 	if (game == L"leagueoflegends") {
-		browse(L"<drive>:/Riot Games Base Folder");
+		browse(L"Riot Games Base Folder");
 		for (const auto& proc : {
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
@@ -281,7 +281,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		Run(b[1], L"", false);
 	}
 	else if (game == L"dota2") {
-		browse(L"Steam DOTA2 Base Dir");
+		browse(L"DOTA2 Base Dir");
 		ProcKill(L"dota2.exe");
 		APath(0, L"game\\bin\\win64");
 		CPath(1, 0, L"embree3.dll");
@@ -316,7 +316,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 	else if (game == L"mgsΔ") {
 		GameConfig mgsΔ{
 			L"mgsΔ",
-			L"SMETAL GEAR SOLID Delta Base Dir",
+			L"METAL GEAR SOLID Delta Base Dir",
 			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" },
 			{
 				{8, 0, L"MGSDelta\\Binaries\\Win64"},
