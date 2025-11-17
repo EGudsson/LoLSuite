@@ -403,7 +403,6 @@ static void manageTask(const std::wstring& task) {
 		PowerShell({
 	L"w32tm /resync",
 	L"sc config tzautoupdate start= auto",
-	L"sc start tzautoupdate",
 	L"powercfg -restoredefaultschemes",
 	L"powercfg /h off",
 	L"Add-WindowsCapability -Online -Name NetFx3~~~~",
@@ -413,6 +412,8 @@ static void manageTask(const std::wstring& task) {
 	L"Get-AppXPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}",
 	L"wsreset -i"
 			});
+
+		serviceman(L"tzautoupdate", true);
 
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
 		for (auto& s : services) serviceman(s, false);
