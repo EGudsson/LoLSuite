@@ -401,16 +401,19 @@ static void manageTask(const std::wstring& task) {
 			L"Minecraft.Windows.exe"
 			}) ProcKill(proc);
 		PowerShell({
-			L"w32tm /resync",
-			L"powercfg -restoredefaultschemes",
-			L"powercfg /h off",
-			L"wsreset -i",
-			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
-			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-			L"winget source update",
-			L"Get-AppxPackage -AllUsers | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppxManifest.xml\" }"
+	L"w32tm /resync",
+	L"sc config tzautoupdate start= auto",
+	L"sc start tzautoupdate",
+	L"powercfg -restoredefaultschemes",
+	L"powercfg /h off",
+	L"Add-WindowsCapability -Online -Name NetFx3~~~~",
+	L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
+	L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
+	L"winget source update",
+	L"Get-AppXPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}",
+	L"wsreset -i"
 			});
+
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
 		for (auto& s : services) serviceman(s, false);
 		WCHAR winDir[MAX_PATH + 1];
@@ -445,7 +448,6 @@ static void manageTask(const std::wstring& task) {
 		bool is64Bit = x64();
 
 		for (const auto& app : apps) {
-			// Skip x64 vcredist if system is 32-bit
 			if (!is64Bit &&
 				app.find(L"Microsoft.VCRedist.") != std::wstring::npos &&
 				app.find(L".x64") != std::wstring::npos) {
@@ -473,17 +475,10 @@ static void manageTask(const std::wstring& task) {
 		configPath /= "launcher_profiles.json";
 		std::vector<std::wstring> cmds;
 
-		// Uninstall Minecraft Launcher
 		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge -h");
-
-		// Uninstall all Java versions except JDK.25
 		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
 			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
-
-		// Install JDK.25
 		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
-
-		// Reinstall Minecraft Launcher
 		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
 
 		PowerShell(cmds);
@@ -624,13 +619,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		if (dis && dis->CtlType == ODT_BUTTON) {
 			COLORREF bg = (dis->itemState & ODS_SELECTED) ? RGB(0, 120, 215) : kBackground;
 			COLORREF fg = (dis->itemState & ODS_SELECTED) ? RGB(255, 255, 255) : kButtonText;
-
-			// Fill background
 			HBRUSH brush = CreateSolidBrush(bg);
 			FillRect(dis->hDC, &dis->rcItem, brush);
 			DeleteObject(brush);
-
-			// Draw white rounded outline
 			HPEN hPen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
 			HGDIOBJ oldPen = SelectObject(dis->hDC, hPen);
 			HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
@@ -638,9 +629,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			SelectObject(dis->hDC, oldBrush);
 			SelectObject(dis->hDC, oldPen);
 			DeleteObject(hPen);
-
-
-			// Draw text
 			SetTextColor(dis->hDC, fg);
 			SetBkMode(dis->hDC, TRANSPARENT);
 			wchar_t text[256] = {};
@@ -680,19 +668,19 @@ int wWinMain(
 	if (LimitInstance::AnotherInstanceRunning()) return 0;
 
 	constexpr int windowWidth = 420;
-	constexpr int windowHeight = 160; // or higher depending on ComboBox height
+	constexpr int windowHeight = 160;
 	constexpr int controlHeight = 30;
 	constexpr int controlTop = 20;
 	constexpr int controlCount = 3;
-	constexpr int controlSpacing = 20; // space between controls
-	int totalSpacing = controlSpacing * (controlCount + 1); // 4 gaps: left, between, right
+	constexpr int controlSpacing = 20;
+	int totalSpacing = controlSpacing * (controlCount + 1);
 	int controlWidth = (windowWidth - totalSpacing) / controlCount;
 	constexpr int buttonWidth = 63;
 	constexpr int buttonSpacing = 15;
 	int xPatch = buttonSpacing;
 	int xRestore = xPatch + buttonWidth + buttonSpacing;
 	int comboLeft = buttonSpacing;
-	int comboTop = controlTop + controlHeight + 10; // was + controlSpacing
+	int comboTop = controlTop + controlHeight + 10;
 	int comboWidth = windowWidth - (2 * buttonSpacing);
 
 	WNDCLASSEXW wcex{
@@ -750,7 +738,7 @@ int wWinMain(
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
 		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered",
-		L"Game Clients", L"Clear Caches"
+		L"Clients", L"Cache-Clear"
 	};
 
 	for (const auto& item : items) {
