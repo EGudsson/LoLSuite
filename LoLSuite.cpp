@@ -687,66 +687,44 @@ static void manageTask(const std::wstring& task) {
 		// Execute all
 		PowerShell(uninstall);
 		PowerShell(install);
-		PowerShell(cmds);
 
-		// Safer getenv_s usage
+		// Restart Minecraft to apply JDK fix
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
-		if (getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA") == 0 && size > 0) {
-			std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
-			std::filesystem::remove_all(configPath);
+		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
+		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
+		std::filesystem::remove_all(configPath);
+		PowerShell(cmds);
 
-			configPath /= "launcher_profiles.json";
+		configPath /= "launcher_profiles.json";
 
-			// Avoid infinite loop: add timeout
-			int retries = 0;
-			Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-			while (!std::filesystem::exists(configPath) && retries < 300) { // ~30s max
-				Sleep(100);
-				retries++;
-			}
-
-			if (std::filesystem::exists(configPath)) {
-				std::wifstream in(configPath);
-				if (in.is_open()) {
-					try {
-						in.imbue(std::locale::classic()); // safer than "en_US.UTF-8"
-						std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
-						in.close();
-
-						std::wstring updated;
-						std::wstringstream ss(config);
-						std::wstring line;
-						while (std::getline(ss, line)) {
-							if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
-								updated += line + L"\n";
-						}
-
-						std::wstring jdkpath = L"C:\\Program Files\\Java\\jdk-25\\bin\\javaw.exe"; // proper escaping
-						for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
-							size_t pos = updated.find(type);
-							if (pos != std::wstring::npos) {
-								size_t start = updated.rfind(L'\n', pos);
-								if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
-								size_t javaDirPos = pos;
-								for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
-									javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
-								if (javaDirPos != std::wstring::npos)
-									updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
-							}
-						}
-
-						std::wofstream out(configPath);
-						if (out.is_open()) {
-							out.imbue(std::locale::classic());
-							out << updated;
-							out.close();
-						}
-					}
-					catch (...) {
-						// handle parsing errors gracefully
-					}
-				}
+		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
+		while (!std::filesystem::exists(configPath)) Sleep(100);
+		for (const auto& proc : {
+			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
+			}) ProcKill(proc);
+		std::wifstream in(configPath);
+		in.imbue(std::locale::classic());
+		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
+		in.close();
+		std::wstring updated;
+		std::wstringstream ss(config);
+		std::wstring line;
+		while (std::getline(ss, line)) {
+			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
+				updated += line + L"\n";
+		}
+		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25\\\\bin\\\\javaw.exe";
+		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
+			size_t pos = updated.find(type);
+			if (pos != std::wstring::npos) {
+				size_t start = updated.rfind(L'\n', pos);
+				if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
+				size_t javaDirPos = pos;
+				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
+					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
+				if (javaDirPos != std::wstring::npos)
+					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
 			}
 		}
 	}
@@ -816,14 +794,14 @@ static void manageTask(const std::wstring& task) {
 
 }
 
-static void handleCommand(int cb, bool flag) {
-	switch (cb) {
-	case 0: manageGame(L"leagueoflegends", flag); break;
-	case 1: manageGame(L"dota2", flag); break;
-	case 2: manageGame(L"smite2", flag); break;
-	case 3: manageGame(L"mgsΔ", flag); break;
-	case 4: manageGame(L"blands4", flag); break;
-	case 5: manageGame(L"oblivionr", flag); break;
+static void handleCommand(int cbi, bool restore) {
+	switch (cbi) {
+	case 0: manageGame(L"leagueoflegends", restore); break;
+	case 1: manageGame(L"dota2", restore); break;
+	case 2: manageGame(L"smite2", restore); break;
+	case 3: manageGame(L"mgsΔ", restore); break;
+	case 4: manageGame(L"blands4", restore); break;
+	case 5: manageGame(L"oblivionr", restore); break;
 	case 6: manageTask(L"cafe"); break;
 	case 7: manageTask(L"clear_caches"); break;
 	default: break;
