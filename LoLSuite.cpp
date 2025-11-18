@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <vector>
 #include <fstream>
+#include <thread>
 #include "resource.h"
 
 class LimitInstance {
@@ -184,34 +185,39 @@ std::wstring browse(const std::wstring& pathLabel) {
 	return b[0];
 }
 
+struct ServiceHandleDeleter {
+	void operator()(SC_HANDLE h) const {
+		if (h) CloseServiceHandle(h);
+	}
+};
+
+using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
+
 static void serviceman(const std::wstring& serviceName, bool start, bool restart = false) {
-	auto closeHandle = [](SC_HANDLE h) { if (h) CloseServiceHandle(h); };
-	std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, decltype(closeHandle)>
-		scm(OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS), closeHandle);
-	if (!scm) return;
-	std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, decltype(closeHandle)>
-		svc(OpenService(scm.get(), serviceName.c_str(), SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS), closeHandle);
-	if (!svc) return;
-	SERVICE_STATUS status{};
-	if (restart) {
-		if (ControlService(svc.get(), SERVICE_CONTROL_STOP, &status)) {
-			while (status.dwCurrentState != SERVICE_STOPPED) {
-				Sleep(500);
-				if (!QueryServiceStatus(svc.get(), &status)) break;
-			}
+	ServiceHandle scm(OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
+
+	ServiceHandle svc(OpenService(scm.get(), serviceName.c_str(),
+		SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS));
+
+	auto stopService = [&](SC_HANDLE h) {
+		SERVICE_STATUS status{};
+		if (ControlService(h, SERVICE_CONTROL_STOP, &status)) {
+			do {
+				std::this_thread::sleep_for(std::chrono::milliseconds(300));
+				if (!QueryServiceStatus(h, &status)) break;
+			} while (status.dwCurrentState != SERVICE_STOPPED);
 		}
+		};
+
+	if (restart) {
+		stopService(svc.get());
 		StartService(svc.get(), 0, nullptr);
 	}
 	else if (start) {
 		StartService(svc.get(), 0, nullptr);
 	}
 	else {
-		if (ControlService(svc.get(), SERVICE_CONTROL_STOP, &status)) {
-			while (status.dwCurrentState != SERVICE_STOPPED) {
-				Sleep(500);
-				if (!QueryServiceStatus(svc.get(), &status)) break;
-			}
-		}
+		stopService(svc.get());
 	}
 }
 
@@ -390,29 +396,22 @@ static void manageGame(const std::wstring& game, bool restore) {
 		}
 	else if (game == L"minecraft")
 	{
-		// Restart Minecraft to apply JDK fix
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
 		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
 		std::filesystem::remove_all(configPath);
-		// Minecraft JDK Fix
-		std::vector<std::wstring> cmds;
-		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
-		for (auto* v : {
-			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
-			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
-			}) {
-			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
-		}
-		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
-		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
-		PowerShell(cmds);
-
 		configPath /= "launcher_profiles.json";
-
+		std::vector<std::wstring> cmds = {
+			L"winget uninstall Mojang.MinecraftLauncher --purge",
+			L"winget install Oracle.JDK.25 --accept-package-agreements",
+			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
+		};
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24" })
+			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
+		PowerShell(cmds);
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-		while (!std::filesystem::exists(configPath)) Sleep(100);
+		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		for (const auto& proc : {
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
 			}) ProcKill(proc);
@@ -440,9 +439,12 @@ static void manageGame(const std::wstring& game, bool restore) {
 					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
 			}
 		}
+		std::wofstream out(configPath);
+		out.imbue(std::locale("en_US.UTF-8"));
+		out << updated;
+		out.close();
+		}
 	}
-
-}
 
 static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
