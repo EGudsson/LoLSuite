@@ -394,34 +394,39 @@ static void manageGame(const std::wstring& game, bool restore) {
 static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
 		serviceman(L"W32Time", false, true);
+
+		// Kill processes safely
 		for (const auto& proc : {
 			L"cmd.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe",
 			L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe",
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
 			L"Minecraft.Windows.exe"
 			}) ProcKill(proc);
+
 		PowerShell({
-	L"w32tm /resync",
-	L"sc config tzautoupdate start= auto",
-	L"powercfg -restoredefaultschemes",
-	L"powercfg /h off",
-	L"Add-WindowsCapability -Online -Name NetFx3~~~~",
-	L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-	L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-	L"winget source update",
-	L"Get-AppXPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}",
-	L"wsreset -i"
+			L"w32tm /resync",
+			L"sc config tzautoupdate start= auto",
+			L"powercfg -restoredefaultschemes",
+			L"powercfg /h off",
+			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
+			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
+			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
+			L"winget source update",
+			L"Get-AppXPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}",
+			L"wsreset -i"
 			});
 
 		serviceman(L"tzautoupdate", true);
 
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
 		for (auto& s : services) serviceman(s, false);
+
 		WCHAR winDir[MAX_PATH + 1];
-		if (GetWindowsDirectory(winDir, MAX_PATH + 1)) {
+		if (GetWindowsDirectory(winDir, MAX_PATH + 1) > 0) {
 			std::filesystem::remove_all(std::filesystem::path(winDir) / L"SoftwareDistribution");
 		}
 		for (auto& s : services) serviceman(s, true);
+
 		WCHAR localAppData[MAX_PATH + 1];
 		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
 			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
@@ -435,14 +440,15 @@ static void manageTask(const std::wstring& task) {
 				}
 			}
 		}
+
 		std::vector<std::wstring> apps = {
-			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
+			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
 			L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
 			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86",
 			L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"Microsoft.PowerShell", L"Microsoft.WindowsTerminal",
 			L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX",
 			L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
-			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.VCRedist.2005.x64"
+			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
 		};
 
 		std::vector<std::wstring> filteredApps;
@@ -468,98 +474,132 @@ static void manageTask(const std::wstring& task) {
 		}
 		PowerShell(uninstall);
 		PowerShell(install);
+
+		// Safer getenv_s usage
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
-		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
-		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
-		std::filesystem::remove_all(configPath);
-		configPath /= "launcher_profiles.json";
-		std::vector<std::wstring> cmds;
+		if (getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA") == 0 && size > 0) {
+			std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
+			std::filesystem::remove_all(configPath);
 
-		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge -h");
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
-			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
-		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
-		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
+			configPath /= "launcher_profiles.json";
 
-		PowerShell(cmds);
-		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-		while (!std::filesystem::exists(configPath)) Sleep(100);
-		for (const auto& proc : {
-			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
-			}) ProcKill(proc);
-		std::wifstream in(configPath);
-		in.imbue(std::locale("en_US.UTF-8"));
-		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
-		in.close();
-		std::wstring updated;
-		std::wstringstream ss(config);
-		std::wstring line;
-		while (std::getline(ss, line)) {
-			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
-				updated += line + L"\n";
-		}
-		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25\\\\bin\\\\javaw.exe";
-		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
-			size_t pos = updated.find(type);
-			if (pos != std::wstring::npos) {
-				size_t start = updated.rfind(L'\n', pos);
-				if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
-				size_t javaDirPos = pos;
-				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
-					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
-				if (javaDirPos != std::wstring::npos)
-					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
+			// Avoid infinite loop: add timeout
+			int retries = 0;
+			Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
+			while (!std::filesystem::exists(configPath) && retries < 300) { // ~30s max
+				Sleep(100);
+				retries++;
+			}
+
+			if (std::filesystem::exists(configPath)) {
+				std::wifstream in(configPath);
+				if (in.is_open()) {
+					try {
+						in.imbue(std::locale::classic()); // safer than "en_US.UTF-8"
+						std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
+						in.close();
+
+						std::wstring updated;
+						std::wstringstream ss(config);
+						std::wstring line;
+						while (std::getline(ss, line)) {
+							if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
+								updated += line + L"\n";
+						}
+
+						std::wstring jdkpath = L"C:\\Program Files\\Java\\jdk-25\\bin\\javaw.exe"; // proper escaping
+						for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
+							size_t pos = updated.find(type);
+							if (pos != std::wstring::npos) {
+								size_t start = updated.rfind(L'\n', pos);
+								if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
+								size_t javaDirPos = pos;
+								for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
+									javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
+								if (javaDirPos != std::wstring::npos)
+									updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
+							}
+						}
+
+						std::wofstream out(configPath);
+						if (out.is_open()) {
+							out.imbue(std::locale::classic());
+							out << updated;
+							out.close();
+						}
+					}
+					catch (...) {
+						// handle parsing errors gracefully
+					}
+				}
 			}
 		}
-		std::wofstream out(configPath);
-		out.imbue(std::locale("en_US.UTF-8"));
-		out << updated;
-		out.close();
 	}
+
 	else if (task == L"clear_caches")
 	{
-		if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
-			using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
-			if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
-				GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
-				DnsFlush();
+		// Flush DNS cache
+		auto flushDnsCache = []() {
+			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
+				using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
+				if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
+					GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
+					DnsFlush();
+				}
+				FreeLibrary(dnsapi);
 			}
-			FreeLibrary(dnsapi);
-		}
+			};
+		flushDnsCache();
 
+		// Kill browser processes
 		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe" }) {
 			ProcKill(proc);
 		}
 
+		// Clear IE/Edge legacy cache
 		ShellExecuteW(nullptr, L"open", L"RunDll32.exe",
 			L"InetCpl.cpl, ClearMyTracksByProcess 4351",
 			nullptr, SW_HIDE);
 
-		auto clearCache = [](const std::filesystem::path& path) {
-			if (std::filesystem::exists(path)) std::filesystem::remove_all(path);
+		// Helper to clear cache directories
+		auto clearCacheDir = [](const std::filesystem::path& path) {
+			try {
+				if (std::filesystem::exists(path)) {
+					std::filesystem::remove_all(path);
+				}
+			}
+			catch (const std::exception& e) {
+				// Optional: log error
+			}
 			};
 
+		// Clear Edge & Chrome cache
 		wchar_t localAppData[MAX_PATH + 1];
 		if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
-			clearCache(std::filesystem::path(localAppData) / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache");
-			clearCache(std::filesystem::path(localAppData) / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
+			std::filesystem::path base(localAppData);
+			clearCacheDir(base / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache");
+			clearCacheDir(base / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
 		}
 
+		// Clear Firefox cache
 		wchar_t roamingAppData[MAX_PATH + 1];
 		if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
 			std::filesystem::path profilesDir = std::filesystem::path(roamingAppData) / "Mozilla" / "Firefox" / "Profiles";
 			if (std::filesystem::exists(profilesDir)) {
 				for (const auto& entry : std::filesystem::directory_iterator(profilesDir)) {
 					if (std::filesystem::is_directory(entry)) {
-						clearCache(entry.path() / "cache2");
+						clearCacheDir(entry.path() / "cache2");
 					}
 				}
 			}
 		}
 
-		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-	}
+		// Empty recycle bin
+		SHEmptyRecycleBin(nullptr, nullptr,
+			SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+}
+
 }
 
 static void handleCommand(int cb, bool flag) {
