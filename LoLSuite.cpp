@@ -388,6 +388,59 @@ static void manageGame(const std::wstring& game, bool restore) {
 		};
 		ProcessGame(oblivionr, restore);
 		}
+	else if (game == L"minecraft")
+	{
+		// Restart Minecraft to apply JDK fix
+		char appdata[MAX_PATH + 1];
+		size_t size = 0;
+		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
+		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
+		std::filesystem::remove_all(configPath);
+		// Minecraft JDK Fix
+		std::vector<std::wstring> cmds;
+		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
+		for (auto* v : {
+			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
+			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
+			}) {
+			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
+		}
+		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
+		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
+		PowerShell(cmds);
+
+		configPath /= "launcher_profiles.json";
+
+		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
+		while (!std::filesystem::exists(configPath)) Sleep(100);
+		for (const auto& proc : {
+			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
+			}) ProcKill(proc);
+		std::wifstream in(configPath);
+		in.imbue(std::locale("en_US.UTF-8"));
+		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
+		in.close();
+		std::wstring updated;
+		std::wstringstream ss(config);
+		std::wstring line;
+		while (std::getline(ss, line)) {
+			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
+				updated += line + L"\n";
+		}
+		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25\\\\bin\\\\javaw.exe";
+		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
+			size_t pos = updated.find(type);
+			if (pos != std::wstring::npos) {
+				size_t start = updated.rfind(L'\n', pos);
+				if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
+				size_t javaDirPos = pos;
+				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
+					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
+				if (javaDirPos != std::wstring::npos)
+					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
+			}
+		}
+	}
 
 }
 
@@ -661,7 +714,7 @@ static void manageTask(const std::wstring& task) {
 			filteredApps.push_back(app);
 		}
 
-		std::vector<std::wstring> uninstall, install, cmds;
+		std::vector<std::wstring> uninstall, install;
 
 		// Handle filtered apps
 		for (auto& app : filteredApps) {
@@ -673,60 +726,10 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		// Minecraft JDK Fix
-		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
-		for (auto* v : {
-			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
-			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
-			}) {
-			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
-		}
-		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
-		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
 
 		// Execute all
 		PowerShell(uninstall);
 		PowerShell(install);
-
-		// Restart Minecraft to apply JDK fix
-		char appdata[MAX_PATH + 1];
-		size_t size = 0;
-		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
-		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
-		std::filesystem::remove_all(configPath);
-		PowerShell(cmds);
-
-		configPath /= "launcher_profiles.json";
-
-		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
-		while (!std::filesystem::exists(configPath)) Sleep(100);
-		for (const auto& proc : {
-			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
-			}) ProcKill(proc);
-		std::wifstream in(configPath);
-		in.imbue(std::locale("en_US.UTF-8"));
-		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
-		in.close();
-		std::wstring updated;
-		std::wstringstream ss(config);
-		std::wstring line;
-		while (std::getline(ss, line)) {
-			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
-				updated += line + L"\n";
-		}
-		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25\\\\bin\\\\javaw.exe";
-		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
-			size_t pos = updated.find(type);
-			if (pos != std::wstring::npos) {
-				size_t start = updated.rfind(L'\n', pos);
-				if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
-				size_t javaDirPos = pos;
-				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
-					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
-				if (javaDirPos != std::wstring::npos)
-					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
-			}
-		}
 	}
 
 	else if (task == L"clear_caches")
@@ -802,8 +805,9 @@ static void handleCommand(int cbi, bool restore) {
 	case 3: manageGame(L"mgsΔ", restore); break;
 	case 4: manageGame(L"blands4", restore); break;
 	case 5: manageGame(L"oblivionr", restore); break;
-	case 6: manageTask(L"cafe"); break;
-	case 7: manageTask(L"clear_caches"); break;
+	case 6: manageGame(L"minecraft", restore); break;
+	case 7: manageTask(L"cafe"); break;
+	case 8: manageTask(L"clear_caches"); break;
 	default: break;
 	}
 }
@@ -970,7 +974,7 @@ int wWinMain(
 
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered",
+		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"MineCraft", 
 		L"Clients", L"Cache-Clear"
 	};
 
