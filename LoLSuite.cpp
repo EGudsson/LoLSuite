@@ -393,7 +393,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"steam://rungameid/2623190"
 		};
 		ProcessGame(oblivionr, restore);
-		}
+	}
 	else if (game == L"minecraft")
 	{
 		char appdata[MAX_PATH + 1];
@@ -443,8 +443,8 @@ static void manageGame(const std::wstring& game, bool restore) {
 		out.imbue(std::locale("en_US.UTF-8"));
 		out << updated;
 		out.close();
-		}
 	}
+}
 
 static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
@@ -795,7 +795,7 @@ static void manageTask(const std::wstring& task) {
 		// Empty recycle bin
 		SHEmptyRecycleBin(nullptr, nullptr,
 			SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-}
+	}
 
 }
 
@@ -976,7 +976,7 @@ int wWinMain(
 
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"MineCraft", 
+		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"MineCraft",
 		L"Clients", L"Cache-Clear"
 	};
 
