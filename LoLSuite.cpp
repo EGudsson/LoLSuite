@@ -661,7 +661,9 @@ static void manageTask(const std::wstring& task) {
 			filteredApps.push_back(app);
 		}
 
-		std::vector<std::wstring> uninstall, install;
+		std::vector<std::wstring> uninstall, install, cmds;
+
+		// Handle filtered apps
 		for (auto& app : filteredApps) {
 			uninstall.push_back(L"winget uninstall " + app + L" --purge");
 			if (app != L"ElectronicArts.Origin") {
@@ -670,8 +672,22 @@ static void manageTask(const std::wstring& task) {
 				install.push_back(cmd);
 			}
 		}
+
+		// Minecraft JDK Fix
+		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge -h");
+		for (auto* v : {
+			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
+			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
+			}) {
+			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge -h");
+		}
+		cmds.emplace_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
+		cmds.emplace_back(L"winget install Mojang.MinecraftLauncher --accept-package-agreements");
+
+		// Execute all
 		PowerShell(uninstall);
 		PowerShell(install);
+		PowerShell(cmds);
 
 		// Safer getenv_s usage
 		char appdata[MAX_PATH + 1];
