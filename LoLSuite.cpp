@@ -674,7 +674,7 @@ static void manageTask(const std::wstring& task) {
 		}
 
 		// Minecraft JDK Fix
-		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge -h");
+		cmds.emplace_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
 		for (auto* v : {
 			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
 			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
