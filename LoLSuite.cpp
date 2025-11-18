@@ -704,7 +704,7 @@ static void manageTask(const std::wstring& task) {
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
 			}) ProcKill(proc);
 		std::wifstream in(configPath);
-		in.imbue(std::locale::classic());
+		in.imbue(std::locale("en_US.UTF-8"));
 		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
 		in.close();
 		std::wstring updated;
