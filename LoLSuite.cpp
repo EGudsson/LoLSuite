@@ -407,8 +407,13 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"winget install Oracle.JDK.25 --accept-package-agreements",
 			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
 		};
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
-			cmds.emplace_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
+
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
+						 L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
+		{
+			cmds.insert(cmds.begin(), L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
+		}
+
 		PowerShell(cmds);
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
