@@ -33,7 +33,7 @@ public:
 };
 
 int cb_index = 0;
-std::vector<std::wstring> b(158);
+std::vector<std::wstring> b(159);
 HWND hWnd, hwndPatch, hwndRestore, combo;
 
 static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
