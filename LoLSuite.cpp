@@ -469,7 +469,7 @@ static void manageTask(const std::wstring& task) {
 		}
 
 		if (!isDX9Installed) {
-			constexpr int tmpIndex = 157;
+			constexpr int tmpIndex = 158;
 			constexpr int baseIndex = 0;
 
 			APath(tmpIndex, std::filesystem::current_path().wstring());
