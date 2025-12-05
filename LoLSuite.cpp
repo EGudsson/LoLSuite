@@ -33,7 +33,7 @@ public:
 };
 
 int cb_index = 0;
-std::vector<std::wstring> b(159);
+std::vector<std::wstring> b(158);
 HWND hWnd, hwndPatch, hwndRestore, combo;
 
 static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
@@ -475,7 +475,6 @@ static void manageTask(const std::wstring& task) {
 			APath(tmpIndex, std::filesystem::current_path().wstring());
 			APath(tmpIndex, L"tmp");
 
-			std::filesystem::remove_all(b[tmpIndex]);
 			std::filesystem::create_directory(b[tmpIndex]);
 
 			std::vector<std::wstring> files = {
