@@ -1,5 +1,4 @@
 ﻿#define WIN32_LEAN_AND_MEAN
-
 #include <windows.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
@@ -722,7 +721,6 @@ static void manageTask(const std::wstring& task) {
 
 		std::vector<std::wstring> uninstall, install;
 
-		// Handle filtered apps
 		for (auto& app : filteredApps) {
 			uninstall.push_back(L"winget uninstall " + app + L" --purge");
 			if (app != L"ElectronicArts.Origin") {
@@ -732,15 +730,12 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-
-		// Execute all
 		PowerShell(uninstall);
 		PowerShell(install);
 	}
 
 	else if (task == L"clear_caches")
 	{
-		// Flush DNS cache
 		auto flushDnsCache = []() {
 			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
 				using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
@@ -753,29 +748,20 @@ static void manageTask(const std::wstring& task) {
 			};
 		flushDnsCache();
 
-		// Kill browser processes
 		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe" }) {
 			ProcKill(proc);
 		}
 
-		// Clear IE/Edge legacy cache
 		ShellExecuteW(nullptr, L"open", L"RunDll32.exe",
 			L"InetCpl.cpl, ClearMyTracksByProcess 4351",
 			nullptr, SW_HIDE);
 
-		// Helper to clear cache directories
 		auto clearCacheDir = [](const std::filesystem::path& path) {
-			try {
-				if (std::filesystem::exists(path)) {
-					std::filesystem::remove_all(path);
-				}
-			}
-			catch (const std::exception& e) {
-				// Optional: log error
+			if (std::filesystem::exists(path)) {
+				std::filesystem::remove_all(path);
 			}
 			};
 
-		// Clear Edge & Chrome cache
 		wchar_t localAppData[MAX_PATH + 1];
 		if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
 			std::filesystem::path base(localAppData);
@@ -783,7 +769,6 @@ static void manageTask(const std::wstring& task) {
 			clearCacheDir(base / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
 		}
 
-		// Clear Firefox cache
 		wchar_t roamingAppData[MAX_PATH + 1];
 		if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
 			std::filesystem::path profilesDir = std::filesystem::path(roamingAppData) / "Mozilla" / "Firefox" / "Profiles";
@@ -796,7 +781,6 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		// Empty recycle bin
 		SHEmptyRecycleBin(nullptr, nullptr,
 			SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
@@ -894,7 +878,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return DefWindowProc(hWnd, msg, wParam, lParam);
 	}
 }
-
 
 int wWinMain(
 	_In_ HINSTANCE hInstance,
