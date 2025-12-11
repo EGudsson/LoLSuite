@@ -76,7 +76,6 @@ static void ProcKill(const std::wstring& name) {
 }
 
 static bool x64() {
-	BOOL isWow64 = FALSE;
 	USHORT processMachine = 0, nativeMachine = 0;
 
 	HMODULE hKernel32 = GetModuleHandleW(L"kernel32");
@@ -86,18 +85,13 @@ static bool x64() {
 	auto fnIsWow64Process2 = reinterpret_cast<FnIsWow64Process2>(
 		GetProcAddress(hKernel32, "IsWow64Process2"));
 
-	if (fnIsWow64Process2 &&
-		fnIsWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
+	if (!fnIsWow64Process2) return false;
+
+	if (fnIsWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
 		return nativeMachine != IMAGE_FILE_MACHINE_I386;
 	}
 
-	using FnIsWow64Process = BOOL(WINAPI*)(HANDLE, PBOOL);
-	auto fnIsWow64Process = reinterpret_cast<FnIsWow64Process>(
-		GetProcAddress(hKernel32, "IsWow64Process"));
-
-	return fnIsWow64Process &&
-		fnIsWow64Process(GetCurrentProcess(), &isWow64) &&
-		isWow64;
+	return false;
 }
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
