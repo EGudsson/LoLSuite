@@ -78,7 +78,7 @@ static void ProcKill(const std::wstring& name) {
 static bool x64() {
 	USHORT processMachine = 0, nativeMachine = 0;
 
-	HMODULE hKernel32 = GetModuleHandleW(L"kernel32");
+	HMODULE hKernel32 = GetModuleHandle(L"kernel32");
 	if (!hKernel32) return false;
 
 	using FnIsWow64Process2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
@@ -386,6 +386,31 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"steam://rungameid/2623190"
 		};
 		ProcessGame(oblivionr, restore);
+	}
+	else if (game == L"silenthillf") {
+		GameConfig silenthillf{
+			L"silenthillf",
+			L"SILENT HILL f Base Dir",
+			{ L"SHf-Win64-Shipping.exe"},
+			{
+				{8, 0, L"SHf\\Binaries\\Win64"},
+				{7, 0, L"Engine\\Binaries\\Win64"},
+				{1, 8, L"tbb.dll"},
+				{2, 8, L"tbbmalloc.dll"},
+				{3, 8, L"tbb12.dll"},
+				{4, 7, L"tbb.dll"},
+				{5, 7, L"tbbmalloc.dll"}
+			},
+			{
+				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb.dll"},
+				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/silenthillf/tbbmalloc.dll"},
+				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb12.dll"},
+				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb.dll"},
+				{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/silenthillf/tbbmalloc.dll"},
+			},
+			L"steam://rungameid/2947440"
+		};
+		ProcessGame(silenthillf, restore);
 	}
 	else if (game == L"minecraft")
 	{
@@ -728,7 +753,7 @@ static void manageTask(const std::wstring& task) {
 		PowerShell(install);
 	}
 
-	else if (task == L"clear_caches")
+	else if (task == L"caches")
 	{
 		auto flushDnsCache = []() {
 			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
@@ -746,9 +771,7 @@ static void manageTask(const std::wstring& task) {
 			ProcKill(proc);
 		}
 
-		ShellExecuteW(nullptr, L"open", L"RunDll32.exe",
-			L"InetCpl.cpl, ClearMyTracksByProcess 4351",
-			nullptr, SW_HIDE);
+		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
 
 		auto clearCacheDir = [](const std::filesystem::path& path) {
 			if (std::filesystem::exists(path)) {
@@ -775,8 +798,7 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		SHEmptyRecycleBin(nullptr, nullptr,
-			SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
 
 }
@@ -789,9 +811,10 @@ static void handleCommand(int cbi, bool restore) {
 	case 3: manageGame(L"mgsΔ", restore); break;
 	case 4: manageGame(L"blands4", restore); break;
 	case 5: manageGame(L"oblivionr", restore); break;
-	case 6: manageGame(L"minecraft", restore); break;
-	case 7: manageTask(L"cafe"); break;
-	case 8: manageTask(L"clear_caches"); break;
+	case 6: manageGame(L"silenthillf", restore); break;
+	case 7: manageGame(L"minecraft", restore); break;
+	case 8: manageTask(L"cafe"); break;
+	case 9: manageTask(L"caches"); break;
 	default: break;
 	}
 }
@@ -923,7 +946,7 @@ int wWinMain(
 
 	hWnd = CreateWindowEx(
 		WS_EX_LAYERED,
-		L"LoLSuite", L"FPS Booster (https://lolsuite.org)",
+		L"LoLSuite", L"FPS Booster",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
 		nullptr, nullptr, hInstance, nullptr
@@ -957,8 +980,8 @@ int wWinMain(
 
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"MineCraft",
-		L"Clients", L"Cache-Clear"
+		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"MineCraft",
+		L"Clients", L"Clear Cache"
 	};
 
 	for (const auto& item : items) {
