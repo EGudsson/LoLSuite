@@ -95,27 +95,47 @@ static bool x64() {
 }
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
-	if (ShellExecuteEx(&sei) && wait && sei.hProcess) {
+	if (!ShellExecuteEx(&sei)) {
+		DWORD err = GetLastError();
+		// log error
+		return;
+	}
+
+	if (wait && sei.hProcess) {
 		SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
-		WaitForSingleObject(sei.hProcess, INFINITE);
+
+		while (WaitForSingleObject(sei.hProcess, 50) == WAIT_TIMEOUT) {
+			MSG msg;
+			while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+		}
+
 		CloseHandle(sei.hProcess);
 	}
 }
 
 static void PowerShell(const std::vector<std::wstring>& commands) {
-	for (const auto& cmd : commands) {
-		std::wstring args = L"-Command \"" + cmd + L"\"";
-		SHELLEXECUTEINFO sei{
-			.cbSize = sizeof(SHELLEXECUTEINFO),
-			.fMask = SEE_MASK_NOCLOSEPROCESS,
-			.lpVerb = L"runas",
-			.lpFile = L"powershell.exe",
-			.lpParameters = args.c_str(),
-			.nShow = SW_HIDE
-		};
-		ExecuteAndWait(sei);
-	}
+	std::wstring script;
+	for (const auto& cmd : commands)
+		script += cmd + L"; ";
+
+	std::wstring args =
+		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
+		L"-Command \"& { " + script + L" }\"";
+
+	SHELLEXECUTEINFO sei{};
+	sei.cbSize = sizeof(sei);
+	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+	sei.lpVerb = L"runas";
+	sei.lpFile = L"powershell.exe";
+	sei.lpParameters = args.c_str();
+	sei.nShow = SW_HIDE;
+
+	ExecuteAndWait(sei);
 }
+
 
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
@@ -434,6 +454,11 @@ static void manageGame(const std::wstring& game, bool restore) {
 		}
 	else if (game == L"minecraft")
 	{
+		// Kill processes safely
+		for (const auto& proc : {
+			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
+			L"Minecraft.Windows.exe"
+			}) ProcKill(proc);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -494,9 +519,7 @@ static void manageTask(const std::wstring& task) {
 		// Kill processes safely
 		for (const auto& proc : {
 			L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe",
-			L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe",
-			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
-			L"Minecraft.Windows.exe"
+			L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe"
 			}) ProcKill(proc);
 
 		bool isDX9Installed = false;
@@ -699,6 +722,7 @@ static void manageTask(const std::wstring& task) {
 		serviceman(L"W32Time", false, true);
 
 		PowerShell({
+			L"wsreset -i",
 			L"w32tm /resync",
 			L"sc config tzautoupdate start= auto",
 			L"powercfg -restoredefaultschemes",
@@ -707,8 +731,7 @@ static void manageTask(const std::wstring& task) {
 			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
 			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
 			L"winget source update",
-			L"Get-AppxPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}",
-			L"wsreset -i"
+			L"Get-AppxPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}"
 			});
 
 		serviceman(L"tzautoupdate", true);
