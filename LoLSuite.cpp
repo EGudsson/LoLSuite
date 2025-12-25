@@ -117,6 +117,7 @@ static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 }
 
 static void PowerShell(const std::vector<std::wstring>& commands) {
+	// Build the combined script
 	std::wstring script;
 	for (const auto& cmd : commands)
 		script += cmd + L"; ";
@@ -125,11 +126,26 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
 		L"-Command \"& { " + script + L" }\"";
 
+	// --- Detect pwsh.exe (PowerShell 7) ---
+	// Try to locate pwsh.exe in PATH using SearchPathW
+	wchar_t pwshPath[MAX_PATH];
+	bool hasPwsh = SearchPathW(
+		nullptr,          // search PATH
+		L"pwsh.exe",      // file to find
+		nullptr,
+		MAX_PATH,
+		pwshPath,
+		nullptr
+	) != 0;
+
+	const wchar_t* shellToUse = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
+
+	// --- Execute ---
 	SHELLEXECUTEINFO sei{};
 	sei.cbSize = sizeof(sei);
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
 	sei.lpVerb = L"runas";
-	sei.lpFile = L"powershell.exe";
+	sei.lpFile = shellToUse;
 	sei.lpParameters = args.c_str();
 	sei.nShow = SW_HIDE;
 
