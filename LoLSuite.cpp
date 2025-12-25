@@ -412,6 +412,26 @@ static void manageGame(const std::wstring& game, bool restore) {
 		};
 		ProcessGame(silenthillf, restore);
 	}
+	else if (game == L"outworlds2") {
+		GameConfig outworlds2{
+			L"outworlds2",
+			L"The Outer Worlds 2 Base Dir",
+			{ L"TheOuterWorlds2-Win64-Shipping.exe", L"TheOuterWorlds2.exe"},
+			{
+				{8, 0, L"Arkansas\\Binaries\\Win64"},
+				{1, 8, L"tbb.dll"},
+				{2, 8, L"tbbmalloc.dll"},
+				{3, 8, L"tbb12.dll"}
+			},
+			{
+				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/outworlds2/tbb.dll"},
+				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/outworlds2/tbbmalloc.dll"},
+				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/outworlds2/tbb12.dll"}
+			},
+			L"steam://rungameid/1449110"
+		};
+		ProcessGame(outworlds2, restore);
+		}
 	else if (game == L"minecraft")
 	{
 		char appdata[MAX_PATH + 1];
@@ -812,9 +832,10 @@ static void handleCommand(int cbi, bool restore) {
 	case 4: manageGame(L"blands4", restore); break;
 	case 5: manageGame(L"oblivionr", restore); break;
 	case 6: manageGame(L"silenthillf", restore); break;
-	case 7: manageGame(L"minecraft", restore); break;
-	case 8: manageTask(L"cafe"); break;
-	case 9: manageTask(L"caches"); break;
+	case 7: manageGame(L"outworlds2", restore); break;
+	case 8: manageGame(L"minecraft", restore); break;
+	case 9: manageTask(L"cafe"); break;
+	case 10: manageTask(L"caches"); break;
 	default: break;
 	}
 }
@@ -980,7 +1001,7 @@ int wWinMain(
 
 	std::vector<LPCWSTR> items = {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"MineCraft",
+		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft",
 		L"Clients", L"Clear Cache"
 	};
 
