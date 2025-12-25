@@ -95,7 +95,10 @@ static bool x64() {
 }
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
-	ShellExecuteEx(&sei);
+	if (!ShellExecuteEx(&sei)) {
+		DWORD err = GetLastError();
+		return;
+	}
 
 	if (wait && sei.hProcess) {
 		SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
@@ -143,6 +146,7 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 
 	ExecuteAndWait(sei);
 }
+
 
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
