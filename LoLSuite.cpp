@@ -95,11 +95,7 @@ static bool x64() {
 }
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
-	if (!ShellExecuteEx(&sei)) {
-		DWORD err = GetLastError();
-		// log error
-		return;
-	}
+	ShellExecuteEx(&sei);
 
 	if (wait && sei.hProcess) {
 		SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
@@ -125,14 +121,12 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
 		L"-Command \"& { " + script + L" }\"";
 
-	// --- Detect pwsh.exe (PowerShell 7) ---
-	// Try to locate pwsh.exe in PATH using SearchPathW
-	wchar_t pwshPath[MAX_PATH];
-	bool hasPwsh = SearchPathW(
-		nullptr,          // search PATH
-		L"pwsh.exe",      // file to find
+	wchar_t pwshPath[MAX_PATH+1];
+	bool hasPwsh = SearchPath(
 		nullptr,
-		MAX_PATH,
+		L"pwsh.exe",
+		nullptr,
+		MAX_PATH+1,
 		pwshPath,
 		nullptr
 	) != 0;
@@ -149,7 +143,6 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 
 	ExecuteAndWait(sei);
 }
-
 
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
