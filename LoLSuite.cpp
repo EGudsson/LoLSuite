@@ -391,7 +391,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		GameConfig silenthillf{
 			L"silenthillf",
 			L"SILENT HILL f Base Dir",
-			{ L"SHf-Win64-Shipping.exe"},
+			{ L"SHf-Win64-Shipping.exe", L"SHf.exe"},
 			{
 				{8, 0, L"SHf\\Binaries\\Win64"},
 				{7, 0, L"Engine\\Binaries\\Win64"},
