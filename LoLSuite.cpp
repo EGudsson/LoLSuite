@@ -1,35 +1,18 @@
 ﻿#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
+#include <filesystem>
+#include <urlmon.h>
 #include <ShObjIdl_core.h>
 #include <Shlobj_core.h>
 #include <TlHelp32.h>
 #include <shellapi.h>
-#include <urlmon.h>
 #include <wininet.h>
-#include <filesystem>
 #include <vector>
 #include <fstream>
 #include <thread>
-#include "resource.h"
 
-class LimitInstance {
-	HANDLE Mutex;
-public:
-	explicit LimitInstance(const std::wstring& mutexName)
-		: Mutex(CreateMutex(nullptr, FALSE, mutexName.c_str())) {
-	}
-	~LimitInstance() {
-		if (Mutex) {
-			ReleaseMutex(Mutex);
-			CloseHandle(Mutex);
-		}
-	}
-	LimitInstance(const LimitInstance&) = delete;
-	LimitInstance& operator=(const LimitInstance&) = delete;
-	static bool AnotherInstanceRunning() {
-		return GetLastError() == ERROR_ALREADY_EXISTS;
-	}
-};
+#include "resource.h"
 
 int cb_index = 0;
 std::vector<std::wstring> b(159);
@@ -47,17 +30,20 @@ static void CPath(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = JPath(b[srcIndex], addition);
 }
 
-static void dl(const std::wstring& url, int idx) {
-	const std::wstring targetUrl = L"https://lolsuite.org/" + url;
+static void DPath(const std::wstring& url, int idx) {
+	static const std::wstring base = L"https://lolroms.com/lolsuite/";
 	const std::wstring& filePath = b[idx];
-	const std::wstring zonePath = filePath + L":Zone.Identifier";
-	DeleteUrlCacheEntry(targetUrl.c_str());
-	URLDownloadToFile(nullptr, targetUrl.c_str(), filePath.c_str(), 0, nullptr);
-	if (std::filesystem::exists(zonePath)) {
+	const std::wstring fullUrl = base + url;
+	DeleteUrlCacheEntry(fullUrl.c_str());
+	URLDownloadToFile(nullptr, fullUrl.c_str(), filePath.c_str(), 0, nullptr);
+
+	const std::wstring zone = filePath + L":Zone.Identifier";
+	if (std::filesystem::exists(zone)) {
 		std::error_code ec;
-		std::filesystem::remove(zonePath, ec);
+		std::filesystem::remove(zone, ec);
 	}
 }
+
 
 static void ProcKill(const std::wstring& name) {
 	auto closeHandle = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
@@ -76,23 +62,25 @@ static void ProcKill(const std::wstring& name) {
 }
 
 static bool x64() {
-	USHORT processMachine = 0, nativeMachine = 0;
+	BOOL isWow64 = FALSE;
 
 	HMODULE hKernel32 = GetModuleHandle(L"kernel32");
 	if (!hKernel32) return false;
 
-	using FnIsWow64Process2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
-	auto fnIsWow64Process2 = reinterpret_cast<FnIsWow64Process2>(
-		GetProcAddress(hKernel32, "IsWow64Process2"));
+	using FnIsWow64Process = BOOL(WINAPI*)(HANDLE, PBOOL);
+	auto fnIsWow64Process = reinterpret_cast<FnIsWow64Process>(
+		GetProcAddress(hKernel32, "IsWow64Process")
+		);
 
-	if (!fnIsWow64Process2) return false;
+	if (!fnIsWow64Process) return false;
 
-	if (fnIsWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
-		return nativeMachine != IMAGE_FILE_MACHINE_I386;
+	if (fnIsWow64Process(GetCurrentProcess(), &isWow64)) {
+		return isWow64 == TRUE;  // TRUE → 64‑bit OS
 	}
 
 	return false;
 }
+
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 	if (!ShellExecuteEx(&sei)) {
@@ -120,9 +108,7 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 	for (const auto& cmd : commands)
 		script += cmd + L"; ";
 
-	std::wstring args =
-		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-		L"-Command \"& { " + script + L" }\"";
+	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
 
 	wchar_t pwshPath[MAX_PATH+1];
 	bool hasPwsh = SearchPath(
@@ -272,7 +258,7 @@ void ProcessGame(const GameConfig& config, bool restore) {
 
 	for (const auto& op : config.fileOps) {
 		const std::wstring& filePath = restore ? op.restorePath : op.patchPath;
-		dl(filePath, op.dstId);
+		DPath(filePath, op.dstId);
 	}
 
 	Run(config.steamUrl, L"", false);
@@ -294,7 +280,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			{8, L"ucrtbase.dll"}, {9, L"vcruntime140.dll"}, {10, L"vcruntime140_1.dll"}
 			}) {
 			CPath(i, 0, f);
-			dl(restore ? L"restore/lol/" + f : L"patch/" + f, i);
+			DPath(restore ? L"restore/lol/" + f : L"patch/" + f, i);
 		}
 		CPath(11, 0, L"Game");
 		CPath(13, 11, L"D3DCompiler_47.dll");
@@ -303,11 +289,11 @@ static void manageGame(const std::wstring& game, bool restore) {
 		if (restore)
 			std::filesystem::remove(b[12]);
 		else
-			dl(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
+			DPath(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
 		auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" :
 			(x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
-		dl(d3dPath, 13);
-		dl(d3dPath, 14);
+		DPath(d3dPath, 13);
+		DPath(d3dPath, 14);
 		Run(b[1], L"", false);
 	}
 	else if (game == L"dota2") {
@@ -316,9 +302,9 @@ static void manageGame(const std::wstring& game, bool restore) {
 		APath(0, L"game\\bin\\win64");
 		CPath(1, 0, L"embree3.dll");
 		CPath(2, 0, L"d3dcompiler_47.dll");
-		dl(restore ? L"restore/dota2/embree3.dll" : L"patch/embree4.dll", 1);
-		dl(restore ? L"restore/dota2/d3dcompiler_47.dll" : L"patch/D3DCompiler_47.dll", 2);
-		Run(L"steam://rungameid/570//-high -dx11 -fullscreen/", L"", false);
+		DPath(restore ? L"restore/dota2/embree3.dll" : L"patch/embree4.dll", 1);
+		DPath(restore ? L"restore/dota2/d3dcompiler_47.dll" : L"patch/D3DCompiler_47.dll", 2);
+		Run(L"steam://rungameid/570", L"", false);
 	}
 	else if (game == L"smite2") {
 		GameConfig smite2{
@@ -465,7 +451,6 @@ static void manageGame(const std::wstring& game, bool restore) {
 		}
 	else if (game == L"minecraft")
 	{
-		// Kill processes safely
 		for (const auto& proc : {
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
 			L"Minecraft.Windows.exe"
@@ -482,8 +467,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
 		};
 
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
-						 L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
 		{
 			cmds.insert(cmds.begin(), L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
 		}
@@ -527,12 +511,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
-		// Kill processes safely
-		for (const auto& proc : {
-			L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe",
-			L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe"
-			}) ProcKill(proc);
-
+		for (const auto& proc : {L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe"}) ProcKill(proc);
 		bool isDX9Installed = false;
 		HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
 		if (hDX9) {
@@ -712,7 +691,7 @@ static void manageTask(const std::wstring& task) {
 			for (size_t i = 0; i < files.size(); ++i) {
 				b[baseIndex + i].clear();
 				CPath(baseIndex + i, tmpIndex, files[i]);
-				dl(L"DXSETUP/" + files[i], baseIndex + i);
+				DPath(L"DXSETUP/" + files[i], baseIndex + i);
 			}
 
 			bool allFilesPresent = true;
@@ -741,8 +720,7 @@ static void manageTask(const std::wstring& task) {
 			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
 			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-			L"winget source update",
-			L"Get-AppxPackage * -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}"
+			L"winget source update"
 			});
 
 		serviceman(L"tzautoupdate", true);
@@ -962,9 +940,6 @@ int wWinMain(
 		CloseClipboard();
 	}
 
-	LimitInstance GUID(L"{3025d31f-c76e-435c-a4b48-9d084fa9f5ea}");
-	if (LimitInstance::AnotherInstanceRunning()) return 0;
-
 	constexpr int windowWidth = 420;
 	constexpr int windowHeight = 160;
 	constexpr int controlHeight = 30;
@@ -1011,7 +986,7 @@ int wWinMain(
 
 	hwndPatch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
-		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		xPatch, controlTop, buttonWidth, controlHeight,
 		hWnd, HMENU(1), hInstance, nullptr
 	);
@@ -1034,9 +1009,7 @@ int wWinMain(
 	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
 	std::vector<LPCWSTR> items = {
-		L"League of Legends", L"DOTA 2", L"SMITE 2",
-		L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft",
-		L"Clients", L"Clear Cache"
+		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft", L"Café Clients", L"Clear Cache"
 	};
 
 	for (const auto& item : items) {
