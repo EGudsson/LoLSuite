@@ -1,5 +1,4 @@
 ﻿#define WIN32_LEAN_AND_MEAN
-
 #include <windows.h>
 #include <filesystem>
 #include <urlmon.h>
@@ -11,7 +10,6 @@
 #include <vector>
 #include <fstream>
 #include <thread>
-
 #include "resource.h"
 
 int cb_index = 0;
@@ -31,7 +29,7 @@ static void CPath(int destIndex, int srcIndex, const std::wstring& addition) {
 }
 
 static void DPath(const std::wstring& url, int idx) {
-	static const std::wstring base = L"https://lolroms.com/lolsuite/";
+	static const std::wstring base = L"https://lolsuite.org/";
 	const std::wstring& filePath = b[idx];
 	const std::wstring fullUrl = base + url;
 	DeleteUrlCacheEntry(fullUrl.c_str());
@@ -43,7 +41,6 @@ static void DPath(const std::wstring& url, int idx) {
 		std::filesystem::remove(zone, ec);
 	}
 }
-
 
 static void ProcKill(const std::wstring& name) {
 	auto closeHandle = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
@@ -147,7 +144,7 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 }
 
 std::wstring browse(const std::wstring& pathLabel) {
-	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.ini").wstring();
+	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
 	wchar_t savedPath[MAX_PATH] = {};
 	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
 
@@ -269,8 +266,8 @@ static void manageGame(const std::wstring& game, bool restore) {
 		browse(L"Riot Games Base Folder");
 		for (const auto& proc : {
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
-			L"League of Legends.exe", L"Riot Client.exe", L"RiotClientServices.exe",
-			L"RiotClientCrashHandler.exe", L"LeagueCrashHandler64.exe"
+			L"League of Legends.exe", L"LeagueCrashHandler64.exe", L"Riot Client.exe", L"RiotClientServices.exe",
+			L"RiotClientCrashHandler.exe"
 			}) ProcKill(proc);
 		CPath(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
 		APath(0, L"League of Legends");
@@ -294,6 +291,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			(x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
 		DPath(d3dPath, 13);
 		DPath(d3dPath, 14);
+		APath(11, L"League of Legends.exe"); // Reserved
 		Run(b[1], L"", false);
 	}
 	else if (game == L"dota2") {
@@ -714,9 +712,11 @@ static void manageTask(const std::wstring& task) {
 		PowerShell({
 			L"wsreset -i",
 			L"w32tm /resync",
+			L"netsh int ip reset",
+			L"netsh winsock reset",
+			L"netsh winhttp reset proxy",
 			L"sc config tzautoupdate start= auto",
 			L"powercfg -restoredefaultschemes",
-			L"powercfg /h off",
 			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
 			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
@@ -1009,7 +1009,7 @@ int wWinMain(
 	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
 	std::vector<LPCWSTR> items = {
-		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft", L"Café Clients", L"Clear Cache"
+		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients", L"Clear Cache"
 	};
 
 	for (const auto& item : items) {
