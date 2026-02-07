@@ -261,15 +261,24 @@ void ProcessGame(const GameConfig& config, bool restore) {
 }
 
 static void manageGame(const std::wstring& game, bool restore) {
+
 	if (game == L"dota2") {
-		browse(L"DOTA2 Base Dir");
-		ProcKill(L"dota2.exe");
-		APath(0, L"game\\bin\\win64");
-		CPath(1, 0, L"embree3.dll");
-		CPath(2, 0, L"d3dcompiler_47.dll");
-		DPath(restore ? L"restore/dota2/embree3.dll" : L"patch/embree4.dll", 1);
-		DPath(restore ? L"restore/dota2/d3dcompiler_47.dll" : L"patch/D3DCompiler_47.dll", 2);
-		Run(L"steam://rungameid/570", L"", false);
+		GameConfig dota2{
+				L"dota2",
+				L"DOTA2 Base Dir",
+				{ L"dota2.exe" },
+				{
+					{8, 0, L"game\\bin\\win64"},
+					{1, 8, L"embree3.dll"},
+					{2, 8, L"d3dcompiler_47.dll"},
+				},
+				{
+					{1, 8, L"embree3.dll", L"patch/embree4.dll", L"restore/dota2/embree3.dll"},
+					{2, 8, L"d3dcompiler_47.dll", L"patch/D3DCompiler_47.dll", L"restore/dota2/d3dcompiler_47.dll"},
+				},
+				L"steam://rungameid/570"
+		};
+		ProcessGame(dota2, restore);
 	}
 	else if (game == L"smite2") {
 		GameConfig smite2{
