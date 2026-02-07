@@ -820,7 +820,6 @@ static void handleCommand(int cbi, bool restore) {
 	case 7: manageGame(L"minecraft", restore); break;
 	case 8: manageTask(L"cafe"); break;
 	case 9: manageTask(L"caches"); break;
-	exit(0);
 	default: break;
 	}
 }
