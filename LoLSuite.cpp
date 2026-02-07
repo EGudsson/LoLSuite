@@ -417,8 +417,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 	else if (game == L"minecraft")
 	{
 		for (const auto& proc : {
-			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe",
-			L"Minecraft.Windows.exe"
+			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
 			}) ProcKill(proc);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
@@ -426,23 +425,28 @@ static void manageGame(const std::wstring& game, bool restore) {
 		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
 		std::filesystem::remove_all(configPath);
 		configPath /= "launcher_profiles.json";
-		std::vector<std::wstring> cmds = {
-			L"winget uninstall Mojang.MinecraftLauncher --purge",
-			L"winget install Oracle.JDK.25 --accept-package-agreements",
-			L"winget install Mojang.MinecraftLauncher --accept-package-agreements"
-		};
+		std::vector<std::wstring> cmds;
 
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
+		// Uninstall Mojang launcher
+		cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
+
+		// Uninstall all Javas
+		for (auto* v : {
+			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
+			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
+			})
 		{
-			cmds.insert(cmds.begin(), L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
+			cmds.push_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
 		}
 
+		// Reinstall
+		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
+		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
+
 		PowerShell(cmds);
+
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		for (const auto& proc : {
-			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
-			}) ProcKill(proc);
 		std::wifstream in(configPath);
 		in.imbue(std::locale("en_US.UTF-8"));
 		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
@@ -454,23 +458,27 @@ static void manageGame(const std::wstring& game, bool restore) {
 			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
 				updated += line + L"\n";
 		}
-		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25\\\\bin\\\\javaw.exe";
+		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25.0.2\\\\bin\\\\javaw.exe";
 		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
 			size_t pos = updated.find(type);
 			if (pos != std::wstring::npos) {
 				size_t start = updated.rfind(L'\n', pos);
-				if (start != std::wstring::npos) updated.insert(start + 1, L" \"skipJreVersionCheck\" : true,\n");
+				if (start != std::wstring::npos) updated.insert(start + 1, L"      \"skipJreVersionCheck\" : true,\n");
 				size_t javaDirPos = pos;
 				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
 					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
 				if (javaDirPos != std::wstring::npos)
-					updated.insert(javaDirPos + 1, L" \"javaDir\" : \"" + jdkpath + L"\",\n");
+					updated.insert(javaDirPos + 1, L"      \"javaDir\" : \"" + jdkpath + L"\",\n");
 			}
 		}
 		std::wofstream out(configPath);
 		out.imbue(std::locale("en_US.UTF-8"));
 		out << updated;
 		out.close();
+		for (const auto& proc : {
+	L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
+			}) ProcKill(proc);
+		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 	}
 }
 
@@ -812,6 +820,7 @@ static void handleCommand(int cbi, bool restore) {
 	case 7: manageGame(L"minecraft", restore); break;
 	case 8: manageTask(L"cafe"); break;
 	case 9: manageTask(L"caches"); break;
+	exit(0);
 	default: break;
 	}
 }
