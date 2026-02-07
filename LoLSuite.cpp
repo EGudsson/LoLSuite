@@ -72,7 +72,7 @@ static bool x64() {
 	if (!fnIsWow64Process) return false;
 
 	if (fnIsWow64Process(GetCurrentProcess(), &isWow64)) {
-		return isWow64 == TRUE;  // TRUE → 64‑bit OS
+		return isWow64 == TRUE;
 	}
 
 	return false;
@@ -129,7 +129,6 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 
 	ExecuteAndWait(sei);
 }
-
 
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
@@ -262,39 +261,7 @@ void ProcessGame(const GameConfig& config, bool restore) {
 }
 
 static void manageGame(const std::wstring& game, bool restore) {
-	if (game == L"leagueoflegends") {
-		browse(L"Riot Games Base Folder");
-		for (const auto& proc : {
-			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
-			L"League of Legends.exe", L"LeagueCrashHandler64.exe", L"Riot Client.exe", L"RiotClientServices.exe",
-			L"RiotClientCrashHandler.exe"
-			}) ProcKill(proc);
-		CPath(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
-		APath(0, L"League of Legends");
-		for (const auto& [i, f] : std::vector<std::pair<int, std::wstring>>{
-			{2, L"concrt140.dll"}, {3, L"d3dcompiler_47.dll"}, {4, L"msvcp140.dll"},
-			{5, L"msvcp140_1.dll"}, {6, L"msvcp140_2.dll"}, {7, L"msvcp140_codecvt_ids.dll"},
-			{8, L"ucrtbase.dll"}, {9, L"vcruntime140.dll"}, {10, L"vcruntime140_1.dll"}
-			}) {
-			CPath(i, 0, f);
-			DPath(restore ? L"restore/lol/" + f : L"patch/" + f, i);
-		}
-		CPath(11, 0, L"Game");
-		CPath(13, 11, L"D3DCompiler_47.dll");
-		CPath(12, 11, L"tbb.dll");
-		CPath(14, 0, L"d3dcompiler_47.dll");
-		if (restore)
-			std::filesystem::remove(b[12]);
-		else
-			DPath(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
-		auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" :
-			(x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
-		DPath(d3dPath, 13);
-		DPath(d3dPath, 14);
-		APath(11, L"League of Legends.exe"); // Reserved
-		Run(b[1], L"", false);
-	}
-	else if (game == L"dota2") {
+	if (game == L"dota2") {
 		browse(L"DOTA2 Base Dir");
 		ProcKill(L"dota2.exe");
 		APath(0, L"game\\bin\\win64");
@@ -523,9 +490,7 @@ static void manageTask(const std::wstring& task) {
 
 			APath(tmpIndex, std::filesystem::current_path().wstring());
 			APath(tmpIndex, L"tmp");
-
 			std::filesystem::create_directory(b[tmpIndex]);
-
 			std::vector<std::wstring> files = {
 			L"Apr2005_d3dx9_25_x64.cab",
 			L"Apr2005_d3dx9_25_x86.cab",
@@ -837,17 +802,16 @@ static void manageTask(const std::wstring& task) {
 
 static void handleCommand(int cbi, bool restore) {
 	switch (cbi) {
-	case 0: manageGame(L"leagueoflegends", restore); break;
-	case 1: manageGame(L"dota2", restore); break;
-	case 2: manageGame(L"smite2", restore); break;
-	case 3: manageGame(L"mgsΔ", restore); break;
-	case 4: manageGame(L"blands4", restore); break;
-	case 5: manageGame(L"oblivionr", restore); break;
-	case 6: manageGame(L"silenthillf", restore); break;
-	case 7: manageGame(L"outworlds2", restore); break;
-	case 8: manageGame(L"minecraft", restore); break;
-	case 9: manageTask(L"cafe"); break;
-	case 10: manageTask(L"caches"); break;
+	case 0: manageGame(L"dota2", restore); break;
+	case 1: manageGame(L"smite2", restore); break;
+	case 2: manageGame(L"mgsΔ", restore); break;
+	case 3: manageGame(L"blands4", restore); break;
+	case 4: manageGame(L"oblivionr", restore); break;
+	case 5: manageGame(L"silenthillf", restore); break;
+	case 6: manageGame(L"outworlds2", restore); break;
+	case 7: manageGame(L"minecraft", restore); break;
+	case 8: manageTask(L"cafe"); break;
+	case 9: manageTask(L"caches"); break;
 	default: break;
 	}
 }
@@ -1009,7 +973,7 @@ int wWinMain(
 	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
 
 	std::vector<LPCWSTR> items = {
-		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients", L"Clear Cache"
+		L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients", L"Clear Cache"
 	};
 
 	for (const auto& item : items) {
