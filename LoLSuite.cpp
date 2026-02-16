@@ -842,10 +842,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	static HBRUSH hBrush = CreateSolidBrush(kBackground);
 
 	switch (msg) {
+
 	case WM_COMMAND: {
-		UINT id = LOWORD(wParam), code = HIWORD(wParam);
+		const UINT id = LOWORD(wParam);
+		const UINT code = HIWORD(wParam);
+
 		if (code == CBN_SELCHANGE)
-			cb_index = SendMessage(reinterpret_cast<HWND>(lParam), CB_GETCURSEL, 0, 0);
+			cb_index = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
 
 		if (id == 1 || id == 2) {
 			handleCommand(cb_index, id == 2);
@@ -859,45 +862,55 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 
 	case WM_CTLCOLORBTN: {
-		HDC hdc = reinterpret_cast<HDC>(wParam);
+		HDC hdc = (HDC)wParam;
 		SetBkMode(hdc, TRANSPARENT);
 		SetTextColor(hdc, kButtonText);
-		return reinterpret_cast<INT_PTR>(GetStockObject(HOLLOW_BRUSH));
+		return (INT_PTR)GetStockObject(HOLLOW_BRUSH);
 	}
 
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
 	case WM_CTLCOLORSCROLLBAR: {
-		HDC hdc = reinterpret_cast<HDC>(wParam);
+		HDC hdc = (HDC)wParam;
 		SetBkMode(hdc, TRANSPARENT);
 		SetTextColor(hdc, kTextColor);
-		return reinterpret_cast<INT_PTR>(hBrush);
+		return (INT_PTR)hBrush;
 	}
 
 	case WM_DRAWITEM: {
-		auto* dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
-		if (dis && dis->CtlType == ODT_BUTTON) {
-			COLORREF bg = (dis->itemState & ODS_SELECTED) ? RGB(0, 120, 215) : kBackground;
-			COLORREF fg = (dis->itemState & ODS_SELECTED) ? RGB(255, 255, 255) : kButtonText;
-			HBRUSH brush = CreateSolidBrush(bg);
-			FillRect(dis->hDC, &dis->rcItem, brush);
-			DeleteObject(brush);
-			HPEN hPen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
-			HGDIOBJ oldPen = SelectObject(dis->hDC, hPen);
-			HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
-			RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top, dis->rcItem.right, dis->rcItem.bottom, 10, 10);
-			SelectObject(dis->hDC, oldBrush);
-			SelectObject(dis->hDC, oldPen);
-			DeleteObject(hPen);
-			SetTextColor(dis->hDC, fg);
-			SetBkMode(dis->hDC, TRANSPARENT);
-			wchar_t text[256] = {};
-			GetWindowText(dis->hwndItem, text, _countof(text));
-			DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-			return TRUE;
-		}
-		return FALSE;
+		auto* dis = (LPDRAWITEMSTRUCT)lParam;
+		if (!dis || dis->CtlType != ODT_BUTTON)
+			return FALSE;
+
+		const bool selected = (dis->itemState & ODS_SELECTED);
+		const COLORREF bg = selected ? RGB(0, 120, 215) : kBackground;
+		const COLORREF fg = selected ? RGB(255, 255, 255) : kButtonText;
+
+		HBRUSH brush = CreateSolidBrush(bg);
+		FillRect(dis->hDC, &dis->rcItem, brush);
+		DeleteObject(brush);
+
+		HPEN pen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+		HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
+		HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
+
+		RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top,
+			dis->rcItem.right, dis->rcItem.bottom, 10, 10);
+
+		SelectObject(dis->hDC, oldBrush);
+		SelectObject(dis->hDC, oldPen);
+		DeleteObject(pen);
+
+		SetTextColor(dis->hDC, fg);
+		SetBkMode(dis->hDC, TRANSPARENT);
+
+		wchar_t text[256];
+		GetWindowText(dis->hwndItem, text, 256);
+		DrawText(dis->hDC, text, -1, &dis->rcItem,
+			DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+		return TRUE;
 	}
 
 	case WM_CLOSE:
@@ -907,11 +920,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-
-	default:
-		return DefWindowProc(hWnd, msg, wParam, lParam);
 	}
+
+	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
+
 
 int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
