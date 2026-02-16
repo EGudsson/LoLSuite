@@ -184,9 +184,10 @@ struct ServiceHandleDeleter {
 	}
 };
 
-using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
 
 static void serviceman(const std::wstring& serviceName, bool start, bool restart = false) {
+	using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
+
 	ServiceHandle scm(OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
 
 	ServiceHandle svc(OpenService(scm.get(), serviceName.c_str(),
@@ -425,10 +426,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 		cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
 
-		for (auto* v : {
-			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
-			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
-			})
+		for (auto* v : {L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
 		{
 			cmds.push_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
 		}
@@ -705,12 +703,9 @@ static void manageTask(const std::wstring& task) {
 			serviceman(s, true);
 
 		std::vector<std::wstring> apps = {
-			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
-			L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
-			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86",
-			L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"9MZ1SNWT0N5D", L"9N0DX20HK701",
-			L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX",
-			L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
+			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
+			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"9MZ1SNWT0N5D", L"9N0DX20HK701",
+			L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
 			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
 		};
 
@@ -925,8 +920,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-
-int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
+int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
+{
 	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
 
 	constexpr int W = 420, H = 160, CH = 30, TOP = 20;
@@ -936,8 +931,8 @@ int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 
 	WNDCLASSEXW wc{
 		sizeof(wc), CS_HREDRAW | CS_VREDRAW, WndProc,
-		0, 0, hInst,
-		LoadIcon(hInst, MAKEINTRESOURCE(IDI_APP_ICON)),
+		0, 0, hInstance,
+		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
 		LoadCursor(nullptr, IDC_ARROW),
 		CreateSolidBrush(RGB(32,32,32)),
 		nullptr, L"MOBASuite", nullptr
@@ -954,7 +949,7 @@ int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 		WS_EX_LAYERED, L"MOBASuite", L"FPS Booster",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
-		nullptr, nullptr, hInst, nullptr
+		nullptr, nullptr, hInstance, nullptr
 	);
 	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
@@ -962,7 +957,7 @@ int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 		0, L"BUTTON", L"Patch",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		xPatch, TOP, BW, CH,
-		hWnd, HMENU(1), hInst, nullptr
+		hWnd, HMENU(1), hInstance, nullptr
 	);
 	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)font, TRUE);
 
@@ -970,7 +965,7 @@ int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		xRestore, TOP, BW, CH,
-		hWnd, HMENU(2), hInst, nullptr
+		hWnd, HMENU(2), hInstance, nullptr
 	);
 	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)font, TRUE);
 
@@ -978,7 +973,7 @@ int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 		0, WC_COMBOBOX, nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
 		comboLeft, comboTop, comboWidth, 210,
-		hWnd, HMENU(3), hInst, nullptr
+		hWnd, HMENU(3), hInstance, nullptr
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)font, TRUE);
 
@@ -991,7 +986,7 @@ int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
 
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
 
-	ShowWindow(hWnd, nShow);
+	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
 	MSG msg;
