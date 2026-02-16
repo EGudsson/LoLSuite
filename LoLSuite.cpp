@@ -792,29 +792,36 @@ static void manageTask(const std::wstring& task) {
 				std::filesystem::remove_all(path);
 			}
 			};
+			auto getFolder = [](int csidl) -> std::optional<std::filesystem::path> {
+				wchar_t buf[MAX_PATH + 1]{};
+				return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, buf))
+					? std::optional<std::filesystem::path>(buf)
+					: std::nullopt;
+				};
 
-		wchar_t localAppData[MAX_PATH + 1];
-		if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData))) {
-			std::filesystem::path base(localAppData);
-			clearCacheDir(base / "Microsoft" / "Edge" / "User Data" / "Default" / "Cache");
-			clearCacheDir(base / "Google" / "Chrome" / "User Data" / "Default" / "Cache");
-		}
+			// --- Local AppData (Edge + Chrome) ---
+			if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
+				std::filesystem::path base = *local;
+				clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
+				clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
+			}
 
-		wchar_t roamingAppData[MAX_PATH + 1];
-		if (SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_APPDATA, nullptr, 0, roamingAppData))) {
-			std::filesystem::path profilesDir = std::filesystem::path(roamingAppData) / "Mozilla" / "Firefox" / "Profiles";
-			if (std::filesystem::exists(profilesDir)) {
-				for (const auto& entry : std::filesystem::directory_iterator(profilesDir)) {
-					if (std::filesystem::is_directory(entry)) {
-						clearCacheDir(entry.path() / "cache2");
+			// --- Roaming AppData (Firefox) ---
+			if (auto roaming = getFolder(CSIDL_APPDATA)) {
+				std::filesystem::path profiles = *roaming / "Mozilla/Firefox/Profiles";
+
+				if (std::filesystem::exists(profiles)) {
+					for (auto& entry : std::filesystem::directory_iterator(profiles)) {
+						if (entry.is_directory()) {
+							clearCacheDir(entry.path() / "cache2");
+						}
 					}
 				}
-			}
 		}
+
 
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
-
 }
 
 static void handleCommand(int cbi, bool restore) {
