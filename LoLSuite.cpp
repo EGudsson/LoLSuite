@@ -43,39 +43,33 @@ static void DPath(const std::wstring& url, int idx) {
 }
 
 static void ProcKill(const std::wstring& name) {
-	auto closeHandle = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
-	std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
-		snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), closeHandle);
-	if (snapshot.get() == INVALID_HANDLE_VALUE) return;
-	PROCESSENTRY32W entry{ .dwSize = sizeof(entry) };
-	for (BOOL found = Process32First(snapshot.get(), &entry); found; found = Process32Next(snapshot.get(), &entry)) {
-		if (name == entry.szExeFile) {
-			std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(closeHandle)>
-				process(OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID), closeHandle);
-			if (process) TerminateProcess(process.get(), 0);
-			break;
+	auto hclose = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
+
+	std::unique_ptr<void, decltype(hclose)>
+		snap(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), hclose);
+	if (snap.get() == INVALID_HANDLE_VALUE) return;
+
+	PROCESSENTRY32W e{ sizeof(e) };
+	for (BOOL ok = Process32First(snap.get(), &e); ok; ok = Process32Next(snap.get(), &e)) {
+		if (name == e.szExeFile) {
+			std::unique_ptr<void, decltype(hclose)>
+				proc(OpenProcess(PROCESS_TERMINATE, FALSE, e.th32ProcessID), hclose);
+			if (proc.get()) TerminateProcess(proc.get(), 0);
 		}
 	}
 }
 
 static bool x64() {
-	BOOL isWow64 = FALSE;
+	BOOL wow = FALSE;
 
-	HMODULE hKernel32 = GetModuleHandle(L"kernel32");
-	if (!hKernel32) return false;
+	auto k32 = GetModuleHandleW(L"kernel32");
+	if (!k32) return false;
 
-	using FnIsWow64Process = BOOL(WINAPI*)(HANDLE, PBOOL);
-	auto fnIsWow64Process = reinterpret_cast<FnIsWow64Process>(
-		GetProcAddress(hKernel32, "IsWow64Process")
-		);
+	using Fn = BOOL(WINAPI*)(HANDLE, PBOOL);
+	auto fn = reinterpret_cast<Fn>(GetProcAddress(k32, "IsWow64Process"));
+	if (!fn) return false;
 
-	if (!fnIsWow64Process) return false;
-
-	if (fnIsWow64Process(GetCurrentProcess(), &isWow64)) {
-		return isWow64 == TRUE;
-	}
-
-	return false;
+	return fn(GetCurrentProcess(), &wow) && wow;
 }
 
 
@@ -108,14 +102,7 @@ static void PowerShell(const std::vector<std::wstring>& commands) {
 	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
 
 	wchar_t pwshPath[MAX_PATH+1];
-	bool hasPwsh = SearchPath(
-		nullptr,
-		L"pwsh.exe",
-		nullptr,
-		MAX_PATH+1,
-		pwshPath,
-		nullptr
-	) != 0;
+	bool hasPwsh = SearchPath(nullptr, L"pwsh.exe", nullptr, MAX_PATH+1, pwshPath, nullptr) != 0;
 
 	const wchar_t* shellToUse = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
 
@@ -436,10 +423,8 @@ static void manageGame(const std::wstring& game, bool restore) {
 		configPath /= "launcher_profiles.json";
 		std::vector<std::wstring> cmds;
 
-		// Uninstall Mojang launcher
 		cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
 
-		// Uninstall all Javas
 		for (auto* v : {
 			L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20",
 			L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"
@@ -448,7 +433,6 @@ static void manageGame(const std::wstring& game, bool restore) {
 			cmds.push_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
 		}
 
-		// Reinstall
 		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
 		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
 
@@ -484,9 +468,11 @@ static void manageGame(const std::wstring& game, bool restore) {
 		out.imbue(std::locale("en_US.UTF-8"));
 		out << updated;
 		out.close();
-		for (const auto& proc : {
-	L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
-			}) ProcKill(proc);
+		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" })
+		{
+			ProcKill(proc);
+		}
+
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 	}
 }
@@ -917,101 +903,78 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 }
 
-int wWinMain(
-	_In_ HINSTANCE hInstance,
-	_In_opt_ HINSTANCE hPrevInstance,
-	_In_ LPWSTR lpCmdLine,
-	_In_ int nShowCmd
-) {
-	if (OpenClipboard(nullptr)) {
-		EmptyClipboard();
-		CloseClipboard();
-	}
+int wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nShow) {
+	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
 
-	constexpr int windowWidth = 420;
-	constexpr int windowHeight = 160;
-	constexpr int controlHeight = 30;
-	constexpr int controlTop = 20;
-	constexpr int controlCount = 3;
-	constexpr int controlSpacing = 20;
-	int totalSpacing = controlSpacing * (controlCount + 1);
-	int controlWidth = (windowWidth - totalSpacing) / controlCount;
-	constexpr int buttonWidth = 63;
-	constexpr int buttonSpacing = 15;
-	int xPatch = buttonSpacing;
-	int xRestore = xPatch + buttonWidth + buttonSpacing;
-	int comboLeft = buttonSpacing;
-	int comboTop = controlTop + controlHeight + 10;
-	int comboWidth = windowWidth - (2 * buttonSpacing);
+	constexpr int W = 420, H = 160, CH = 30, TOP = 20;
+	constexpr int BW = 63, BS = 15;
+	int xPatch = BS, xRestore = xPatch + BW + BS;
+	int comboLeft = BS, comboTop = TOP + CH + 10, comboWidth = W - BS * 2;
 
-	WNDCLASSEXW wcex{
-			sizeof(wcex), CS_HREDRAW | CS_VREDRAW, WndProc,
-			0, 0, hInstance,
-			LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-			LoadCursor(nullptr, IDC_ARROW),
-			CreateSolidBrush(RGB(32, 32, 32)),
-			nullptr, L"MOBASuite", nullptr
+	WNDCLASSEXW wc{
+		sizeof(wc), CS_HREDRAW | CS_VREDRAW, WndProc,
+		0, 0, hInst,
+		LoadIcon(hInst, MAKEINTRESOURCE(IDI_APP_ICON)),
+		LoadCursor(nullptr, IDC_ARROW),
+		CreateSolidBrush(RGB(32,32,32)),
+		nullptr, L"MOBASuite", nullptr
 	};
+	RegisterClassEx(&wc);
 
-	RegisterClassEx(&wcex);
-
-	HFONT hFont = CreateFont(
+	HFONT font = CreateFont(
 		-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-		CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
-		L"Segoe UI"
+		CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
 	);
 
 	hWnd = CreateWindowEx(
-		WS_EX_LAYERED,
-		L"MOBASuite", L"FPS Booster",
+		WS_EX_LAYERED, L"MOBASuite", L"FPS Booster",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
-		nullptr, nullptr, hInstance, nullptr
+		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
+		nullptr, nullptr, hInst, nullptr
 	);
-
 	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
 	hwndPatch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-		xPatch, controlTop, buttonWidth, controlHeight,
-		hWnd, HMENU(1), hInstance, nullptr
+		xPatch, TOP, BW, CH,
+		hWnd, HMENU(1), hInst, nullptr
 	);
-	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)hFont, TRUE);
+	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)font, TRUE);
 
 	hwndRestore = CreateWindowEx(
 		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-		xRestore, controlTop, buttonWidth, controlHeight,
-		hWnd, HMENU(2), hInstance, nullptr
+		xRestore, TOP, BW, CH,
+		hWnd, HMENU(2), hInst, nullptr
 	);
-	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)hFont, TRUE);
+	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)font, TRUE);
 
 	combo = CreateWindowEx(
 		0, WC_COMBOBOX, nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
 		comboLeft, comboTop, comboWidth, 210,
-		hWnd, (HMENU)3, hInstance, nullptr
+		hWnd, HMENU(3), hInst, nullptr
 	);
-	SendMessage(combo, WM_SETFONT, (WPARAM)hFont, TRUE);
+	SendMessage(combo, WM_SETFONT, (WPARAM)font, TRUE);
 
-	std::vector<LPCWSTR> items = {
-		L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients", L"Clear Cache"
-	};
+	for (LPCWSTR s : {
+		L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater",
+			L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered",
+			L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft",
+			L"Café Clients", L"Clear Cache"
+	}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
 
-	for (const auto& item : items) {
-		SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
-	}
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
 
-	ShowWindow(hWnd, nShowCmd);
+	ShowWindow(hWnd, nShow);
 	UpdateWindow(hWnd);
+
 	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-
-	return static_cast<int>(msg.wParam);
+	return (int)msg.wParam;
 }
