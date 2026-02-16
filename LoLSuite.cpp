@@ -700,21 +700,9 @@ static void manageTask(const std::wstring& task) {
 		if (GetWindowsDirectory(winDir, MAX_PATH + 1) > 0) {
 			std::filesystem::remove_all(std::filesystem::path(winDir) / L"SoftwareDistribution");
 		}
-		for (auto& s : services) serviceman(s, true);
 
-		WCHAR localAppData[MAX_PATH + 1];
-		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
-			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
-			for (auto& pattern : { L"thumbcache_*.db", L"iconcache_*.db", L"ExplorerStartupLog*.etl" }) {
-				WIN32_FIND_DATA data;
-				HANDLE hFind = FindFirstFile((explorerPath / pattern).c_str(), &data);
-				if (hFind != INVALID_HANDLE_VALUE) {
-					do std::filesystem::remove(explorerPath / data.cFileName);
-					while (FindNextFile(hFind, &data));
-					FindClose(hFind);
-				}
-			}
-		}
+		for (auto& s : services)
+			serviceman(s, true);
 
 		std::vector<std::wstring> apps = {
 			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86",
@@ -755,6 +743,30 @@ static void manageTask(const std::wstring& task) {
 
 	else if (task == L"caches")
 	{
+		WCHAR localAppData[MAX_PATH + 1];
+		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
+			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
+
+			constexpr const wchar_t* patterns[] = {
+				L"thumbcache_*.db",
+				L"iconcache_*.db",
+				L"ExplorerStartupLog*.etl"
+			};
+
+			for (auto pattern : patterns) {
+				WIN32_FIND_DATA data;
+				HANDLE hFind = FindFirstFile((explorerPath / pattern).c_str(), &data);
+
+				if (hFind != INVALID_HANDLE_VALUE) {
+					do {
+						std::filesystem::remove(explorerPath / data.cFileName);
+					} while (FindNextFile(hFind, &data));
+
+					FindClose(hFind);
+				}
+			}
+		}
+
 		auto flushDnsCache = []() {
 			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
 				using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
@@ -785,14 +797,12 @@ static void manageTask(const std::wstring& task) {
 					: std::nullopt;
 				};
 
-			// --- Local AppData (Edge + Chrome) ---
 			if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
 				std::filesystem::path base = *local;
 				clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
 				clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
 			}
 
-			// --- Roaming AppData (Firefox) ---
 			if (auto roaming = getFolder(CSIDL_APPDATA)) {
 				std::filesystem::path profiles = *roaming / "Mozilla/Firefox/Profiles";
 
