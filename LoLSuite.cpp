@@ -127,19 +127,12 @@ static void DynPS(const std::vector<std::wstring>& commands)
 
 	const wchar_t* shellToUse = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
 
-	// ------------------------------------------------------------
-	// 1. If pwsh is missing → try installing PowerShell 7 via winget
-	// ------------------------------------------------------------
 	if (!hasPwsh)
 	{
-		// First check if winget exists
 		wchar_t wingetPath[MAX_PATH + 1];
 		bool hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
 			MAX_PATH + 1, wingetPath, nullptr) != 0;
 
-		// ------------------------------------------------------------
-		// 2. If winget is missing → repair DesktopAppInstaller (AppInstaller)
-		// ------------------------------------------------------------
 		if (!hasWinget)
 		{
 			SHELLEXECUTEINFO seiFix{};
@@ -159,15 +152,11 @@ static void DynPS(const std::vector<std::wstring>& commands)
 				WaitForSingleObject(seiFix.hProcess, INFINITE);
 				CloseHandle(seiFix.hProcess);
 
-				// Retry winget detection
 				hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
 					MAX_PATH + 1, wingetPath, nullptr) != 0;
 			}
 		}
 
-		// ------------------------------------------------------------
-		// 3. If winget is available → install PowerShell 7 silently
-		// ------------------------------------------------------------
 		if (hasWinget)
 		{
 			SHELLEXECUTEINFO seiInstall{};
@@ -185,7 +174,6 @@ static void DynPS(const std::vector<std::wstring>& commands)
 				WaitForSingleObject(seiInstall.hProcess, INFINITE);
 				CloseHandle(seiInstall.hProcess);
 
-				// Retry pwsh detection
 				hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
 					MAX_PATH + 1, pwshPath, nullptr) != 0;
 
@@ -195,9 +183,6 @@ static void DynPS(const std::vector<std::wstring>& commands)
 		}
 	}
 
-	// ------------------------------------------------------------
-	// 4. Execute the actual PowerShell script
-	// ------------------------------------------------------------
 	SHELLEXECUTEINFO sei{};
 	sei.cbSize = sizeof(sei);
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
@@ -898,7 +883,6 @@ static void manageTask(const std::wstring& task) {
 		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
 			const std::filesystem::path base = *local;
 
-			// Chromium-based browsers
 			const std::vector<std::string> chromiumVendors = {
 				"Microsoft/Edge",
 				"Microsoft/Edge Beta",
@@ -927,7 +911,6 @@ static void manageTask(const std::wstring& task) {
 				}
 			}
 
-			// Firefox browser
 			const std::filesystem::path profiles = base / "Mozilla/Firefox/Profiles";
 
 			if (std::filesystem::exists(profiles)) {
@@ -938,7 +921,6 @@ static void manageTask(const std::wstring& task) {
 				}
 			}
 		}
-
 
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
