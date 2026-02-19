@@ -10,6 +10,7 @@
 #include <vector>
 #include <fstream>
 #include <thread>
+#include <VersionHelpers.h>
 #include "resource.h"
 
 int cb_index = 0;
@@ -59,10 +60,25 @@ static void ProcKill(const std::wstring& name) {
 	}
 }
 
-static bool x64() {
-	BOOL wow = FALSE;
+static bool x64()
+{
+	USHORT processMachine = 0, nativeMachine = 0;
 
-	auto k32 = GetModuleHandleW(L"kernel32");
+	if (IsWindows10OrGreater()) {
+		auto k32 = GetModuleHandleW(L"kernel32.dll");
+		if (k32) {
+			using Fn2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
+			auto fn2 = reinterpret_cast<Fn2>(GetProcAddress(k32, "IsWow64Process2"));
+			if (fn2) {
+				if (fn2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
+					return nativeMachine != IMAGE_FILE_MACHINE_UNKNOWN;
+				}
+			}
+		}
+	}
+
+	BOOL wow = FALSE;
+	auto k32 = GetModuleHandleW(L"kernel32.dll");
 	if (!k32) return false;
 
 	using Fn = BOOL(WINAPI*)(HANDLE, PBOOL);
@@ -71,6 +87,7 @@ static bool x64() {
 
 	return fn(GetCurrentProcess(), &wow) && wow;
 }
+
 
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
@@ -94,18 +111,93 @@ static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 	}
 }
 
-static void PowerShell(const std::vector<std::wstring>& commands) {
+static void DynPS(const std::vector<std::wstring>& commands)
+{
 	std::wstring script;
 	for (const auto& cmd : commands)
 		script += cmd + L"; ";
 
-	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
+	std::wstring args =
+		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
+		L"-Command \"& { " + script + L" }\"";
 
-	wchar_t pwshPath[MAX_PATH+1];
-	bool hasPwsh = SearchPath(nullptr, L"pwsh.exe", nullptr, MAX_PATH+1, pwshPath, nullptr) != 0;
+	wchar_t pwshPath[MAX_PATH + 1];
+	bool hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
+		MAX_PATH + 1, pwshPath, nullptr) != 0;
 
 	const wchar_t* shellToUse = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
 
+	// ------------------------------------------------------------
+	// 1. If pwsh is missing → try installing PowerShell 7 via winget
+	// ------------------------------------------------------------
+	if (!hasPwsh)
+	{
+		// First check if winget exists
+		wchar_t wingetPath[MAX_PATH + 1];
+		bool hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
+			MAX_PATH + 1, wingetPath, nullptr) != 0;
+
+		// ------------------------------------------------------------
+		// 2. If winget is missing → repair DesktopAppInstaller (AppInstaller)
+		// ------------------------------------------------------------
+		if (!hasWinget)
+		{
+			SHELLEXECUTEINFO seiFix{};
+			seiFix.cbSize = sizeof(seiFix);
+			seiFix.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+			seiFix.lpVerb = L"runas";
+			seiFix.lpFile = L"powershell.exe";
+			seiFix.lpParameters =
+				L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
+				L"-Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | "
+				L"Foreach { Add-AppxPackage -DisableDevelopmentMode -Register "
+				L"'$($_.InstallLocation)\\AppXManifest.xml' }\"";
+			seiFix.nShow = SW_HIDE;
+
+			if (ShellExecuteExW(&seiFix))
+			{
+				WaitForSingleObject(seiFix.hProcess, INFINITE);
+				CloseHandle(seiFix.hProcess);
+
+				// Retry winget detection
+				hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
+					MAX_PATH + 1, wingetPath, nullptr) != 0;
+			}
+		}
+
+		// ------------------------------------------------------------
+		// 3. If winget is available → install PowerShell 7 silently
+		// ------------------------------------------------------------
+		if (hasWinget)
+		{
+			SHELLEXECUTEINFO seiInstall{};
+			seiInstall.cbSize = sizeof(seiInstall);
+			seiInstall.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+			seiInstall.lpVerb = L"runas";
+			seiInstall.lpFile = L"winget";
+			seiInstall.lpParameters =
+				L"install Microsoft.PowerShell --silent "
+				L"--accept-package-agreements --accept-source-agreements";
+			seiInstall.nShow = SW_HIDE;
+
+			if (ShellExecuteExW(&seiInstall))
+			{
+				WaitForSingleObject(seiInstall.hProcess, INFINITE);
+				CloseHandle(seiInstall.hProcess);
+
+				// Retry pwsh detection
+				hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
+					MAX_PATH + 1, pwshPath, nullptr) != 0;
+
+				if (hasPwsh)
+					shellToUse = L"pwsh.exe";
+			}
+		}
+	}
+
+	// ------------------------------------------------------------
+	// 4. Execute the actual PowerShell script
+	// ------------------------------------------------------------
 	SHELLEXECUTEINFO sei{};
 	sei.cbSize = sizeof(sei);
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
@@ -434,7 +526,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
 		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
 
-		PowerShell(cmds);
+		DynPS(cmds);
 
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -466,7 +558,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		out.imbue(std::locale("en_US.UTF-8"));
 		out << updated;
 		out.close();
-		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" })
+		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"java.exe", L"javaw.exe", L"MinecraftServer.exe", L"Minecraft.Windows.exe" })
 		{
 			ProcKill(proc);
 		}
@@ -673,22 +765,31 @@ static void manageTask(const std::wstring& task) {
 			std::filesystem::remove_all(b[tmpIndex]);
 		}
 
-		serviceman(L"W32Time", false, true);
-
-		PowerShell({
+		DynPS({
+			L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
 			L"wsreset -i",
 			L"w32tm /resync",
 			L"netsh int ip reset",
 			L"netsh winsock reset",
 			L"netsh winhttp reset proxy",
-			L"sc config tzautoupdate start= auto",
 			L"powercfg -restoredefaultschemes",
 			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-			L"winget source update"
+			L"winget source update",
+			L"winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements"
 			});
 
+		if (IsWindows10OrGreater)
+		{
+			DynPS({
+				L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
+				L"sc config tzautoupdate start= auto",
+				L"sc config W32Time start= auto",
+				L"DISM /Online /Cleanup-Image /RestoreHealth"
+				});
+		}
+
+		serviceman(L"W32Time", false, true);
 		serviceman(L"tzautoupdate", true);
 
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
@@ -704,7 +805,7 @@ static void manageTask(const std::wstring& task) {
 
 		std::vector<std::wstring> apps = {
 			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
-			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"9MZ1SNWT0N5D", L"9N0DX20HK701",
+			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"9N0DX20HK701",
 			L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
 			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
 		};
@@ -732,12 +833,10 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		PowerShell(uninstall);
-		PowerShell(install);
-	}
+		DynPS(uninstall);
+		DynPS(install);
 
-	else if (task == L"caches")
-	{
+		// Cleanup
 		WCHAR localAppData[MAX_PATH + 1];
 		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
 			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
@@ -785,29 +884,29 @@ static void manageTask(const std::wstring& task) {
 				std::filesystem::remove_all(path);
 			}
 			};
-			auto getFolder = [](int csidl) -> std::optional<std::filesystem::path> {
-				wchar_t buf[MAX_PATH + 1]{};
-				return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, buf))
-					? std::optional<std::filesystem::path>(buf)
-					: std::nullopt;
-				};
+		auto getFolder = [](int csidl) -> std::optional<std::filesystem::path> {
+			wchar_t buf[MAX_PATH + 1]{};
+			return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, buf))
+				? std::optional<std::filesystem::path>(buf)
+				: std::nullopt;
+			};
 
-			if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
-				std::filesystem::path base = *local;
-				clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
-				clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
-			}
+		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
+			std::filesystem::path base = *local;
+			clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
+			clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
+		}
 
-			if (auto roaming = getFolder(CSIDL_APPDATA)) {
-				std::filesystem::path profiles = *roaming / "Mozilla/Firefox/Profiles";
+		if (auto roaming = getFolder(CSIDL_APPDATA)) {
+			std::filesystem::path profiles = *roaming / "Mozilla/Firefox/Profiles";
 
-				if (std::filesystem::exists(profiles)) {
-					for (auto& entry : std::filesystem::directory_iterator(profiles)) {
-						if (entry.is_directory()) {
-							clearCacheDir(entry.path() / "cache2");
-						}
+			if (std::filesystem::exists(profiles)) {
+				for (auto& entry : std::filesystem::directory_iterator(profiles)) {
+					if (entry.is_directory()) {
+						clearCacheDir(entry.path() / "cache2");
 					}
 				}
+			}
 		}
 
 
@@ -954,7 +1053,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
 	hwndPatch = CreateWindowEx(
-		0, L"BUTTON", L"Patch",
+		0, L"BUTTON", L"Apply",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		xPatch, TOP, BW, CH,
 		hWnd, HMENU(1), hInstance, nullptr
@@ -962,7 +1061,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)font, TRUE);
 
 	hwndRestore = CreateWindowEx(
-		0, L"BUTTON", L"Restore",
+		0, L"BUTTON", L"Revert",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		xRestore, TOP, BW, CH,
 		hWnd, HMENU(2), hInstance, nullptr
@@ -981,7 +1080,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater",
 			L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered",
 			L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft",
-			L"Café Clients", L"Clear Cache"
+			L"Café Clients (Admin)"
 	}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
 
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
