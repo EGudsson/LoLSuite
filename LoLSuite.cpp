@@ -806,7 +806,7 @@ static void manageTask(const std::wstring& task) {
 			L"Microsoft.VCRedist.2005.x86", L"Microsoft.VCRedist.2005.x64", L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
 			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.VCRedist.2015+.x64", L"Microsoft.VCRedist.2015+.x86", L"9N0DX20HK701",
 			L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
-			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam"
+			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.EdgeWebView2Runtime"
 		};
 
 		std::vector<std::wstring> filteredApps;
@@ -872,10 +872,15 @@ static void manageTask(const std::wstring& task) {
 			};
 		flushDnsCache();
 
-		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe" }) {
+		for (const auto& proc : {
+			L"firefox.exe",
+			L"msedge.exe",
+			L"chrome.exe",
+			L"iexplore.exe",
+			L"opera.exe"
+			}) {
 			ProcKill(proc);
 		}
-
 		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
 
 		auto clearCacheDir = [](const std::filesystem::path& path) {
@@ -892,22 +897,75 @@ static void manageTask(const std::wstring& task) {
 
 		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
 			std::filesystem::path base = *local;
-			clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
-			clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
-		}
 
-		if (auto roaming = getFolder(CSIDL_APPDATA)) {
-			std::filesystem::path profiles = *roaming / "Mozilla/Firefox/Profiles";
+			// Microsoft Chromium browsers
+			clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
+			clearCacheDir(base / "Microsoft/Edge/User Data/Default/Code Cache");
+			clearCacheDir(base / "Microsoft/Edge/User Data/Default/GPUCache");
+			clearCacheDir(base / "Microsoft/Edge/User Data/Default/ShaderCache");
+			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/Cache");
+			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/Code Cache");
+			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/GPUCache");
+			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/ShaderCache");
+			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/Cache");
+			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/Code Cache");
+			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/GPUCache");
+			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/ShaderCache");
+			clearCacheDir(base / "Microsoft/Edge SxS/User Data/Default/Cache");
+			clearCacheDir(base / "Microsoft/Edge SxS/User Data/Default/Code Cache");
+			clearCacheDir(base / "Microsoft/Edge SxS/User Data/Default/GPUCache");
+			clearCacheDir(base / "Microsoft/Edge Sxs/User Data/Default/ShaderCache");
+
+			// Google Chromium browser
+			clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
+			clearCacheDir(base / "Google/Chrome/User Data/Default/Code Cache");
+			clearCacheDir(base / "Google/Chrome/User Data/Default/GPUCache");
+			clearCacheDir(base / "Google/Chrome/User Data/Default/ShaderCache");
+			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/Cache");
+			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/Code Cache");
+			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/GPUCache");
+			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/ShaderCache");
+			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/Cache");
+			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/Code Cache");
+			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/GPUCache");
+			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/ShaderCache");
+			clearCacheDir(base / "Google/Chrome SxS/User Data/Default/Cache");
+			clearCacheDir(base / "Google/Chrome SxS/User Data/Default/Code Cache");
+			clearCacheDir(base / "Google/Chrome SxS/User Data/Default/GPUCache");
+			clearCacheDir(base / "Google/Chrome Sxs/User Data/Default/ShaderCache");
+
+			// Opera browsers
+			clearCacheDir(base / "Opera Software/Opera Stable/Cache");
+			clearCacheDir(base / "Opera Software/Opera Stable/Code Cache");
+			clearCacheDir(base / "Opera Software/Opera Stable/GPUCache");
+			clearCacheDir(base / "Opera Software/Opera Stable/ShaderCache");
+			clearCacheDir(base / "Opera Software/Opera GX Stable/Cache");
+			clearCacheDir(base / "Opera Software/Opera GX Stable/Code Cache");
+			clearCacheDir(base / "Opera Software/Opera GX Stable/GPUCache");
+			clearCacheDir(base / "Opera Software/Opera GX Stable/ShaderCache");
+			clearCacheDir(base / "Opera Software/Opera Air Stable/Cache");
+			clearCacheDir(base / "Opera Software/Opera Air Stable/Code Cache");
+			clearCacheDir(base / "Opera Software/Opera Air Stable/GPUCache");
+			clearCacheDir(base / "Opera Software/Opera Air Stable/ShaderCache");
+			clearCacheDir(base / "Opera Software/Opera Next/Cache");
+			clearCacheDir(base / "Opera Software/Opera Next/Code Cache");
+			clearCacheDir(base / "Opera Software/Opera Next/GPUCache");
+			clearCacheDir(base / "Opera Software/Opera Next/ShaderCache");
+
+			// Firefox browser
+			std::filesystem::path profiles = base / "Mozilla/Firefox/Profiles";
 
 			if (std::filesystem::exists(profiles)) {
-				for (auto& entry : std::filesystem::directory_iterator(profiles)) {
-					if (entry.is_directory()) {
-						clearCacheDir(entry.path() / "cache2");
-					}
+				for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
+					if (!entry.is_directory())
+						continue;
+
+					std::filesystem::path cache2 = entry.path() / "cache2";
+					clearCacheDir(cache2);
 				}
 			}
-		}
 
+		}
 
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
