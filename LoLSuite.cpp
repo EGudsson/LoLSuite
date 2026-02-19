@@ -775,8 +775,7 @@ static void manageTask(const std::wstring& task) {
 			L"powercfg -restoredefaultschemes",
 			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-			L"winget source update",
-			L"winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements"
+			L"winget source update"
 			});
 
 		if (IsWindows10OrGreater)
