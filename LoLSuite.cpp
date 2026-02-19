@@ -896,76 +896,49 @@ static void manageTask(const std::wstring& task) {
 			};
 
 		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
-			std::filesystem::path base = *local;
+			const std::filesystem::path base = *local;
 
-			// Microsoft Chromium browsers
-			clearCacheDir(base / "Microsoft/Edge/User Data/Default/Cache");
-			clearCacheDir(base / "Microsoft/Edge/User Data/Default/Code Cache");
-			clearCacheDir(base / "Microsoft/Edge/User Data/Default/GPUCache");
-			clearCacheDir(base / "Microsoft/Edge/User Data/Default/ShaderCache");
-			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/Cache");
-			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/Code Cache");
-			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/GPUCache");
-			clearCacheDir(base / "Microsoft/Edge Beta/User Data/Default/ShaderCache");
-			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/Cache");
-			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/Code Cache");
-			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/GPUCache");
-			clearCacheDir(base / "Microsoft/Edge Dev/User Data/Default/ShaderCache");
-			clearCacheDir(base / "Microsoft/Edge SxS/User Data/Default/Cache");
-			clearCacheDir(base / "Microsoft/Edge SxS/User Data/Default/Code Cache");
-			clearCacheDir(base / "Microsoft/Edge SxS/User Data/Default/GPUCache");
-			clearCacheDir(base / "Microsoft/Edge Sxs/User Data/Default/ShaderCache");
+			// Chromium-based browsers
+			const std::vector<std::string> chromiumVendors = {
+				"Microsoft/Edge",
+				"Microsoft/Edge Beta",
+				"Microsoft/Edge Dev",
+				"Microsoft/Edge SxS",
+				"Google/Chrome",
+				"Google/Chrome Beta",
+				"Google/Chrome Dev",
+				"Google/Chrome SxS",
+				"Opera Software/Opera Stable",
+				"Opera Software/Opera GX Stable",
+				"Opera Software/Opera Air Stable",
+				"Opera Software/Opera Next"
+			};
 
-			// Google Chromium browser
-			clearCacheDir(base / "Google/Chrome/User Data/Default/Cache");
-			clearCacheDir(base / "Google/Chrome/User Data/Default/Code Cache");
-			clearCacheDir(base / "Google/Chrome/User Data/Default/GPUCache");
-			clearCacheDir(base / "Google/Chrome/User Data/Default/ShaderCache");
-			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/Cache");
-			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/Code Cache");
-			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/GPUCache");
-			clearCacheDir(base / "Google/Chrome Beta/User Data/Default/ShaderCache");
-			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/Cache");
-			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/Code Cache");
-			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/GPUCache");
-			clearCacheDir(base / "Google/Chrome Dev/User Data/Default/ShaderCache");
-			clearCacheDir(base / "Google/Chrome SxS/User Data/Default/Cache");
-			clearCacheDir(base / "Google/Chrome SxS/User Data/Default/Code Cache");
-			clearCacheDir(base / "Google/Chrome SxS/User Data/Default/GPUCache");
-			clearCacheDir(base / "Google/Chrome Sxs/User Data/Default/ShaderCache");
+			const std::vector<std::string> cacheFolders = {
+				"Cache",
+				"Code Cache",
+				"GPUCache",
+				"ShaderCache"
+			};
 
-			// Opera browsers
-			clearCacheDir(base / "Opera Software/Opera Stable/Cache");
-			clearCacheDir(base / "Opera Software/Opera Stable/Code Cache");
-			clearCacheDir(base / "Opera Software/Opera Stable/GPUCache");
-			clearCacheDir(base / "Opera Software/Opera Stable/ShaderCache");
-			clearCacheDir(base / "Opera Software/Opera GX Stable/Cache");
-			clearCacheDir(base / "Opera Software/Opera GX Stable/Code Cache");
-			clearCacheDir(base / "Opera Software/Opera GX Stable/GPUCache");
-			clearCacheDir(base / "Opera Software/Opera GX Stable/ShaderCache");
-			clearCacheDir(base / "Opera Software/Opera Air Stable/Cache");
-			clearCacheDir(base / "Opera Software/Opera Air Stable/Code Cache");
-			clearCacheDir(base / "Opera Software/Opera Air Stable/GPUCache");
-			clearCacheDir(base / "Opera Software/Opera Air Stable/ShaderCache");
-			clearCacheDir(base / "Opera Software/Opera Next/Cache");
-			clearCacheDir(base / "Opera Software/Opera Next/Code Cache");
-			clearCacheDir(base / "Opera Software/Opera Next/GPUCache");
-			clearCacheDir(base / "Opera Software/Opera Next/ShaderCache");
-
-			// Firefox browser
-			std::filesystem::path profiles = base / "Mozilla/Firefox/Profiles";
-
-			if (std::filesystem::exists(profiles)) {
-				for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
-					if (!entry.is_directory())
-						continue;
-
-					std::filesystem::path cache2 = entry.path() / "cache2";
-					clearCacheDir(cache2);
+			for (const auto& vendor : chromiumVendors) {
+				for (const auto& cache : cacheFolders) {
+					clearCacheDir(base / vendor / "User Data/Default" / cache);
 				}
 			}
 
+			// Firefox browser
+			const std::filesystem::path profiles = base / "Mozilla/Firefox/Profiles";
+
+			if (std::filesystem::exists(profiles)) {
+				for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
+					if (entry.is_directory()) {
+						clearCacheDir(entry.path() / "cache2");
+					}
+				}
+			}
 		}
+
 
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
