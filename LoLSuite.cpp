@@ -259,14 +259,12 @@ std::wstring browse(const std::wstring& pathLabel) {
 	return b[0];
 }
 
-struct ServiceHandleDeleter {
-	void operator()(SC_HANDLE h) const {
-		if (h) CloseServiceHandle(h);
-	}
-};
-
-
 static void serviceman(const std::wstring& serviceName, bool start, bool restart = false) {
+	struct ServiceHandleDeleter {
+		void operator()(SC_HANDLE h) const {
+			if (h) CloseServiceHandle(h);
+		}
+	};
 	using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
 	ServiceHandle scm(OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
 	ServiceHandle svc(OpenService(scm.get(), serviceName.c_str(), SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS));
@@ -488,10 +486,10 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"steam://rungameid/1449110"
 		};
 		ProcessGame(outworlds2, restore);
-		}
+	}
 	else if (game == L"minecraft")
 	{
-		for (const auto& proc : {L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"}) ProcKill(proc);
+		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) ProcKill(proc);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -502,7 +500,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 		cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
 
-		for (auto* v : {L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25"})
+		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
 		{
 			cmds.push_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
 		}
@@ -554,7 +552,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-		for (const auto& proc : {L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe"}) ProcKill(proc);
+		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) ProcKill(proc);
 		bool isDX9Installed = false;
 		HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
 		if (hDX9) {
@@ -855,7 +853,7 @@ static void manageTask(const std::wstring& task) {
 			FreeLibrary(dnsapi);
 		}
 
-		for (const auto& proc : {L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe"}) {
+		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
 			ProcKill(proc);
 		}
 
@@ -903,7 +901,7 @@ static void manageTask(const std::wstring& task) {
 			const std::vector<std::wstring> opera = { L"Opera Software/Opera Stable", L"Opera Software/Opera GX Stable", L"Opera Software/Opera Air Stable", L"Opera Software/Opera Next" };
 			for (const auto& browser : opera) {
 				CacheClear(*local / browser / L"Default/Cache");
-			}	
+			}
 		}
 	}
 }
@@ -930,24 +928,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	static HBRUSH hBrush = CreateSolidBrush(kBackground);
 
 	switch (msg) {
-
-	case WM_COMMAND: {
-		const UINT id = LOWORD(wParam);
-		const UINT code = HIWORD(wParam);
-
-		if (code == CBN_SELCHANGE)
-			cb_index = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
-
-		if (id == 1 || id == 2) {
-			handleCommand(cb_index, id == 2);
-			return 0;
-		}
-		if (id == IDM_EXIT) {
-			DestroyWindow(hWnd);
-			return 0;
-		}
-		break;
-	}
 
 	case WM_CTLCOLORBTN: {
 		HDC hdc = (HDC)wParam;
@@ -1001,15 +981,34 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return TRUE;
 	}
 
+	case WM_COMMAND: {
+		const UINT id = LOWORD(wParam);
+		const UINT code = HIWORD(wParam);
+
+		if (code == CBN_SELCHANGE)
+			cb_index = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
+
+		if (id == 1 || id == 2) {
+			handleCommand(cb_index, id == 2);
+			return 0;
+		}
+
+		if (id == IDM_EXIT) {
+			SendMessage(hWnd, WM_CLOSE, 0, 0);   // safer than DestroyWindow
+			return 0;
+		}
+		break;
+	}
+
 	case WM_CLOSE:
-		DestroyWindow(hWnd);
+		DestroyWindow(hWnd);   // triggers WM_DESTROY
 		return 0;
 
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-	}
 
+	}
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
