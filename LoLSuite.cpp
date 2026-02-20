@@ -88,8 +88,6 @@ static bool x64()
 	return fn(GetCurrentProcess(), &wow) && wow;
 }
 
-
-
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 	if (!ShellExecuteEx(&sei)) {
 		DWORD err = GetLastError();
@@ -555,6 +553,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
+		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 		for (const auto& proc : {L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe"}) ProcKill(proc);
 		bool isDX9Installed = false;
 		HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
@@ -847,24 +846,22 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		auto flushDnsCache = []() {
-			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
-				using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
-				if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
-					GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
-					DnsFlush();
-				}
-				FreeLibrary(dnsapi);
+		if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
+			using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
+			if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
+				GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
+				DnsFlush();
 			}
-			};
-		flushDnsCache();
+			FreeLibrary(dnsapi);
+		}
 
 		for (const auto& proc : {L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe"}) {
 			ProcKill(proc);
 		}
+
 		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
 
-		auto clearCacheDir = [](const std::filesystem::path& path) {
+		auto CacheClear = [](const std::filesystem::path& path) {
 			if (std::filesystem::exists(path)) {
 				std::filesystem::remove_all(path);
 			}
@@ -877,7 +874,6 @@ static void manageTask(const std::wstring& task) {
 			};
 
 		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
-			const std::filesystem::path base = *local;
 
 			const std::vector<std::wstring> Chromium = {
 				L"Microsoft/Edge", L"Microsoft/Edge Beta", L"Microsoft/Edge Dev", L"Microsoft/Edge SxS",
@@ -890,27 +886,25 @@ static void manageTask(const std::wstring& task) {
 
 			for (const auto& vendor : Chromium) {
 				for (const auto& cache : Caches) {
-					clearCacheDir(base / vendor / L"User Data/Default" / cache);
+					CacheClear(*local / vendor / L"User Data/Default" / cache);
 				}
 			}
 
-			const std::filesystem::path profiles = base / L"Mozilla/Firefox/Profiles";
+			const std::filesystem::path profiles = *local / L"Mozilla/Firefox/Profiles";
 
 			if (std::filesystem::exists(profiles)) {
 				for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
 					if (entry.is_directory()) {
-						clearCacheDir(entry.path() / L"cache2");
+						CacheClear(entry.path() / L"cache2");
 					}
 				}
 			}
 
 			const std::vector<std::wstring> opera = { L"Opera Software/Opera Stable", L"Opera Software/Opera GX Stable", L"Opera Software/Opera Air Stable", L"Opera Software/Opera Next" };
 			for (const auto& browser : opera) {
-				clearCacheDir(base / browser / L"Default" / L"Cache");
+				CacheClear(*local / browser / L"Default/Cache");
 			}	
 		}
-
-		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 	}
 }
 
