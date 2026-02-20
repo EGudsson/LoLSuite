@@ -270,11 +270,8 @@ struct ServiceHandleDeleter {
 
 static void serviceman(const std::wstring& serviceName, bool start, bool restart = false) {
 	using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
-
 	ServiceHandle scm(OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
-
-	ServiceHandle svc(OpenService(scm.get(), serviceName.c_str(),
-		SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS));
+	ServiceHandle svc(OpenService(scm.get(), serviceName.c_str(), SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS));
 
 	auto stopService = [&](SC_HANDLE h) {
 		SERVICE_STATUS status{};
@@ -496,9 +493,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		}
 	else if (game == L"minecraft")
 	{
-		for (const auto& proc : {
-			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
-			}) ProcKill(proc);
+		for (const auto& proc : {L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"}) ProcKill(proc);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -756,6 +751,8 @@ static void manageTask(const std::wstring& task) {
 			std::filesystem::remove_all(b[tmpIndex]);
 		}
 
+		serviceman(L"W32Time", true);
+
 		DynPS({
 			L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
 			L"wsreset -i",
@@ -779,7 +776,7 @@ static void manageTask(const std::wstring& task) {
 				});
 		}
 
-		serviceman(L"W32Time", false, true);
+
 		serviceman(L"tzautoupdate", true);
 
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
@@ -826,7 +823,6 @@ static void manageTask(const std::wstring& task) {
 		DynPS(uninstall);
 		DynPS(install);
 
-		// Cleanup
 		WCHAR localAppData[MAX_PATH + 1];
 		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
 			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
@@ -863,13 +859,7 @@ static void manageTask(const std::wstring& task) {
 			};
 		flushDnsCache();
 
-		for (const auto& proc : {
-			L"firefox.exe",
-			L"msedge.exe",
-			L"chrome.exe",
-			L"iexplore.exe",
-			L"opera.exe"
-			}) {
+		for (const auto& proc : {L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe"}) {
 			ProcKill(proc);
 		}
 		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
@@ -889,43 +879,35 @@ static void manageTask(const std::wstring& task) {
 		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
 			const std::filesystem::path base = *local;
 
-			const std::vector<std::string> chromiumVendors = {
-				"Microsoft/Edge",
-				"Microsoft/Edge Beta",
-				"Microsoft/Edge Dev",
-				"Microsoft/Edge SxS",
-				"Google/Chrome",
-				"Google/Chrome Beta",
-				"Google/Chrome Dev",
-				"Google/Chrome SxS",
-				"Opera Software/Opera Stable",
-				"Opera Software/Opera GX Stable",
-				"Opera Software/Opera Air Stable",
-				"Opera Software/Opera Next"
+			const std::vector<std::wstring> Chromium = {
+				L"Microsoft/Edge", L"Microsoft/Edge Beta", L"Microsoft/Edge Dev", L"Microsoft/Edge SxS",
+				L"Google/Chrome", L"Google/Chrome Beta", L"Google/Chrome Dev", L"Google/Chrome SxS"
 			};
 
-			const std::vector<std::string> cacheFolders = {
-				"Cache",
-				"Code Cache",
-				"GPUCache",
-				"ShaderCache"
+			const std::vector<std::wstring> Caches = {
+				L"Cache", L"Code Cache", L"GPUCache", L"ShaderCache"
 			};
 
-			for (const auto& vendor : chromiumVendors) {
-				for (const auto& cache : cacheFolders) {
-					clearCacheDir(base / vendor / "User Data/Default" / cache);
+			for (const auto& vendor : Chromium) {
+				for (const auto& cache : Caches) {
+					clearCacheDir(base / vendor / L"User Data/Default" / cache);
 				}
 			}
 
-			const std::filesystem::path profiles = base / "Mozilla/Firefox/Profiles";
+			const std::filesystem::path profiles = base / L"Mozilla/Firefox/Profiles";
 
 			if (std::filesystem::exists(profiles)) {
 				for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
 					if (entry.is_directory()) {
-						clearCacheDir(entry.path() / "cache2");
+						clearCacheDir(entry.path() / L"cache2");
 					}
 				}
 			}
+
+			const std::vector<std::wstring> opera = { L"Opera Software/Opera Stable", L"Opera Software/Opera GX Stable", L"Opera Software/Opera Air Stable", L"Opera Software/Opera Next" };
+			for (const auto& browser : opera) {
+				clearCacheDir(base / browser / L"Default" / L"Cache");
+			}	
 		}
 
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
