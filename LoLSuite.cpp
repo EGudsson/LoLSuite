@@ -773,7 +773,6 @@ static void manageTask(const std::wstring& task) {
 				});
 		}
 
-
 		serviceman(L"tzautoupdate", true);
 
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
@@ -994,14 +993,14 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		}
 
 		if (id == IDM_EXIT) {
-			SendMessage(hWnd, WM_CLOSE, 0, 0);   // safer than DestroyWindow
+			SendMessage(hWnd, WM_CLOSE, 0, 0);
 			return 0;
 		}
 		break;
 	}
 
 	case WM_CLOSE:
-		DestroyWindow(hWnd);   // triggers WM_DESTROY
+		DestroyWindow(hWnd);
 		return 0;
 
 	case WM_DESTROY:
