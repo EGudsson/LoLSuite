@@ -149,8 +149,11 @@ static void DynPS(const std::vector<std::wstring>& commands)
 
 			if (ShellExecuteExW(&seiFix))
 			{
-				WaitForSingleObject(seiFix.hProcess, INFINITE);
-				CloseHandle(seiFix.hProcess);
+				if (seiFix.hProcess && seiFix.hProcess != INVALID_HANDLE_VALUE)
+				{
+					WaitForSingleObject(seiFix.hProcess, INFINITE);
+					CloseHandle(seiFix.hProcess);
+				}
 
 				hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
 					MAX_PATH + 1, wingetPath, nullptr) != 0;
@@ -171,8 +174,11 @@ static void DynPS(const std::vector<std::wstring>& commands)
 
 			if (ShellExecuteExW(&seiInstall))
 			{
-				WaitForSingleObject(seiInstall.hProcess, INFINITE);
-				CloseHandle(seiInstall.hProcess);
+				if (seiInstall.hProcess && seiInstall.hProcess != INVALID_HANDLE_VALUE)
+				{
+					WaitForSingleObject(seiInstall.hProcess, INFINITE);
+					CloseHandle(seiInstall.hProcess);
+				}
 
 				hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
 					MAX_PATH + 1, pwshPath, nullptr) != 0;
@@ -1088,12 +1094,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)font, TRUE);
 
-	for (LPCWSTR s : {
-		L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater",
-			L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered",
-			L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft",
-			L"Café Clients (Admin)"
-	}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
+	for (LPCWSTR s : {L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
 
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
 
