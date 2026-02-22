@@ -913,7 +913,6 @@ static void handleCommand(int cbi, bool restore) {
 	case 6: manageGame(L"outworlds2", restore); break;
 	case 7: manageGame(L"minecraft", restore); break;
 	case 8: manageTask(L"cafe"); break;
-	case 9: manageTask(L"caches"); break;
 	default: break;
 	}
 }
