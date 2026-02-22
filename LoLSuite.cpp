@@ -30,16 +30,14 @@ static void CPath(int destIndex, int srcIndex, const std::wstring& addition) {
 }
 
 static void DPath(const std::wstring& url, int idx) {
-	static const std::wstring base = L"https://lolsuite.org/";
+	const std::wstring targetUrl = L"https://lolroms.com/buffer/" + url;
 	const std::wstring& filePath = b[idx];
-	const std::wstring fullUrl = base + url;
-	DeleteUrlCacheEntry(fullUrl.c_str());
-	URLDownloadToFile(nullptr, fullUrl.c_str(), filePath.c_str(), 0, nullptr);
-
-	const std::wstring zone = filePath + L":Zone.Identifier";
-	if (std::filesystem::exists(zone)) {
+	const std::wstring zonePath = filePath + L":Zone.Identifier";
+	DeleteUrlCacheEntry(targetUrl.c_str());
+	URLDownloadToFile(nullptr, targetUrl.c_str(), filePath.c_str(), 0, nullptr);
+	if (std::filesystem::exists(zonePath)) {
 		std::error_code ec;
-		std::filesystem::remove(zone, ec);
+		std::filesystem::remove(zonePath, ec);
 	}
 }
 
@@ -1045,7 +1043,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	hwndPatch = CreateWindowEx(
 		0, L"BUTTON", L"Apply",
-		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
 		xPatch, TOP, BW, CH,
 		hWnd, HMENU(1), hInstance, nullptr
 	);
