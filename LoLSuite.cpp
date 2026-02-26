@@ -371,6 +371,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			L"METAL GEAR SOLID Delta Base Dir",
 			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" },
 			{
+				{9, 0, L"MGSDelta_Foxhunt\\Binaries\\Win64"},
 				{8, 0, L"MGSDelta\\Binaries\\Win64"},
 				{7, 0, L"MGSDelta_Nightmare\\Binaries\\Win64"},
 				{1, 8, L"tbb.dll"},
@@ -378,9 +379,15 @@ static void manageGame(const std::wstring& game, bool restore) {
 				{3, 8, L"tbbmalloc.dll"},
 				{4, 7, L"tbb.dll"},
 				{5, 7, L"tbb12.dll"},
-				{6, 7, L"tbbmalloc.dll"}
+				{6, 7, L"tbbmalloc.dll"},
+				{10, 9, L"tbb.dll" },
+				{11, 9, L"tbb12.dll"},
+				{12, 9, L"tbbmalloc.dll"}
 			},
 			{
+				{10, 9, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
+				{11, 9, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
+				{12, 9, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
 				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
 				{2, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
 				{3, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
