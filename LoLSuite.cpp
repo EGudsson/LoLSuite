@@ -369,7 +369,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 		GameConfig mgsΔ{
 			L"mgsΔ",
 			L"METAL GEAR SOLID Delta Base Dir",
-			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe" },
+			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe", L"Foxhunt-Win64-Shipping.exe"},
 			{
 				{9, 0, L"MGSDelta_Foxhunt\\Binaries\\Win64"},
 				{8, 0, L"MGSDelta\\Binaries\\Win64"},
