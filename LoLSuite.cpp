@@ -938,6 +938,24 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return (INT_PTR)GetStockObject(HOLLOW_BRUSH);
 	}
 
+	case WM_DPICHANGED:
+	{
+		UINT newDpi = HIWORD(wParam);
+		int logicalSize = 16;
+		int pixelHeight = -MulDiv(logicalSize, newDpi, 96);
+
+		HFONT newFont = CreateFontW(
+			pixelHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+			CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
+		);
+
+		SendMessage(hWnd, WM_SETFONT, (WPARAM)newFont, TRUE);
+
+		return 0;
+	}
+
+
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
