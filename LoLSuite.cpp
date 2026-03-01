@@ -1033,11 +1033,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	};
 	RegisterClassEx(&wc);
 
-	HFONT font = CreateFont(
-		-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-		CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
-	);
+
+
 
 	hWnd = CreateWindowEx(
 		WS_EX_LAYERED, L"MOBASuite", L"FPS Booster",
@@ -1045,6 +1042,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
 		nullptr, nullptr, hInstance, nullptr
 	);
+
+	UINT dpi = GetDpiForWindow(hWnd);
+	int logicalSize = 16;
+	int pixelHeight = -MulDiv(logicalSize, dpi, 96);
+
+	HFONT font = CreateFontW(
+		pixelHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
+	);
+
 	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
 	hwndPatch = CreateWindowEx(
