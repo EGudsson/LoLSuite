@@ -113,9 +113,7 @@ static void DynPS(const std::vector<std::wstring>& commands)
 	for (const auto& cmd : commands)
 		script += cmd + L"; ";
 
-	std::wstring args =
-		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-		L"-Command \"& { " + script + L" }\"";
+	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
 
 	wchar_t pwshPath[MAX_PATH + 1];
 	bool hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
@@ -136,11 +134,7 @@ static void DynPS(const std::vector<std::wstring>& commands)
 			seiFix.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
 			seiFix.lpVerb = L"runas";
 			seiFix.lpFile = L"powershell.exe";
-			seiFix.lpParameters =
-				L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-				L"-Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | "
-				L"Foreach { Add-AppxPackage -DisableDevelopmentMode -Register "
-				L"'$($_.InstallLocation)\\AppXManifest.xml' }\"";
+			seiFix.lpParameters = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"";
 			seiFix.nShow = SW_HIDE;
 
 			if (ShellExecuteExW(&seiFix))
@@ -163,9 +157,7 @@ static void DynPS(const std::vector<std::wstring>& commands)
 			seiInstall.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
 			seiInstall.lpVerb = L"runas";
 			seiInstall.lpFile = L"winget";
-			seiInstall.lpParameters =
-				L"install Microsoft.PowerShell --silent "
-				L"--accept-package-agreements --accept-source-agreements";
+			seiInstall.lpParameters = L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements";
 			seiInstall.nShow = SW_HIDE;
 
 			if (ShellExecuteExW(&seiInstall))
@@ -955,7 +947,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return 0;
 	}
 
-
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
@@ -1051,9 +1042,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	};
 	RegisterClassEx(&wc);
 
-
-
-
 	hWnd = CreateWindowEx(
 		WS_EX_LAYERED, L"MOBASuite", L"FPS Booster",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
@@ -1065,7 +1053,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	int logicalSize = 16;
 	int pixelHeight = -MulDiv(logicalSize, dpi, 96);
 
-	HFONT font = CreateFontW(
+	HFONT font = CreateFont(
 		pixelHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
 		CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
