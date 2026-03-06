@@ -29,15 +29,6 @@ static void CPath(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = JPath(b[srcIndex], addition);
 }
 
-static void UBlock(int idx) {
-	const std::wstring& filePath = b[idx];
-	const std::wstring zonePath = filePath + L":Zone.Identifier";
-	if (std::filesystem::exists(zonePath)) {
-		std::error_code ec;
-		std::filesystem::remove(zonePath, ec);
-	}
-}
-
 static void DPath(const std::wstring& url, int idx) {
 	const std::wstring targetUrl = L"https://lolroms.com/buffer/" + url;
 	const std::wstring& filePath = b[idx];
