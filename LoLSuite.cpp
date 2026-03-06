@@ -29,6 +29,15 @@ static void CPath(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = JPath(b[srcIndex], addition);
 }
 
+static void UBlock(int idx) {
+	const std::wstring& filePath = b[idx];
+	const std::wstring zonePath = filePath + L":Zone.Identifier";
+	if (std::filesystem::exists(zonePath)) {
+		std::error_code ec;
+		std::filesystem::remove(zonePath, ec);
+	}
+}
+
 static void DPath(const std::wstring& url, int idx) {
 	const std::wstring targetUrl = L"https://lolroms.com/buffer/" + url;
 	const std::wstring& filePath = b[idx];
@@ -315,7 +324,37 @@ void ProcessGame(const GameConfig& config, bool restore) {
 }
 
 static void manageGame(const std::wstring& game, bool restore) {
-
+	if (game == L"leagueoflegends") {
+		browse(L"Riot Games Base Folder");
+		for (const auto& proc : {
+			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
+			L"League of Legends.exe", L"LeagueCrashHandler64.exe", L"Riot Client.exe", L"RiotClientServices.exe",
+			L"RiotClientCrashHandler.exe"
+			}) ProcKill(proc);
+		CPath(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
+		APath(0, L"League of Legends");
+		for (const auto& [i, f] : std::vector<std::pair<int, std::wstring>>{
+			{2, L"concrt140.dll"}, {3, L"d3dcompiler_47.dll"}, {4, L"msvcp140.dll"},
+			{5, L"msvcp140_1.dll"}, {6, L"msvcp140_2.dll"}, {7, L"msvcp140_codecvt_ids.dll"},
+			{8, L"ucrtbase.dll"}, {9, L"vcruntime140.dll"}, {10, L"vcruntime140_1.dll"}
+			}) {
+			CPath(i, 0, f);
+			DPath(restore ? L"restore/lol/" + f : L"patch/" + f, i);
+		}
+		CPath(11, 0, L"Game");
+		CPath(13, 11, L"D3DCompiler_47.dll");
+		CPath(12, 11, L"tbb.dll");
+		CPath(14, 0, L"d3dcompiler_47.dll");
+		if (restore)
+			std::filesystem::remove(b[12]);
+		else
+			DPath(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
+		auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" :
+			(x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
+		DPath(d3dPath, 13);
+		DPath(d3dPath, 14);
+		Run(b[1], L"", false);
+	}
 	if (game == L"dota2") {
 		GameConfig dota2{
 				L"dota2",
@@ -903,15 +942,17 @@ static void manageTask(const std::wstring& task) {
 
 static void handleCommand(int cbi, bool restore) {
 	switch (cbi) {
-	case 0: manageGame(L"dota2", restore); break;
-	case 1: manageGame(L"smite2", restore); break;
-	case 2: manageGame(L"mgsΔ", restore); break;
-	case 3: manageGame(L"blands4", restore); break;
-	case 4: manageGame(L"oblivionr", restore); break;
-	case 5: manageGame(L"silenthillf", restore); break;
-	case 6: manageGame(L"outworlds2", restore); break;
-	case 7: manageGame(L"minecraft", restore); break;
-	case 8: manageTask(L"cafe"); break;
+	case 0: manageGame(L"leagueoflegends", restore); break;
+	case 1: manageGame(L"dota2", restore); break;
+	case 2: manageGame(L"dota2", restore); break;
+	case 3: manageGame(L"smite2", restore); break;
+	case 4: manageGame(L"mgsΔ", restore); break;
+	case 5: manageGame(L"blands4", restore); break;
+	case 6: manageGame(L"oblivionr", restore); break;
+	case 7: manageGame(L"silenthillf", restore); break;
+	case 8: manageGame(L"outworlds2", restore); break;
+	case 9: manageGame(L"minecraft", restore); break;
+	case 10: manageTask(L"cafe"); break;
 	default: break;
 	}
 }
@@ -1085,7 +1126,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)font, TRUE);
 
-	for (LPCWSTR s : {L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
+	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
 
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
 
