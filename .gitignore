@@ -36,12 +36,3 @@
 *.exe
 *.out
 *.app
-
-# debug information files
-*.dwo
-LoLSuite.vcxproj.user
-LoLSuite.sln
-
-.vs
-Release
-LoLSuite
