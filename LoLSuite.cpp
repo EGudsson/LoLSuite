@@ -935,15 +935,14 @@ static void handleCommand(int cbi, bool restore) {
 	switch (cbi) {
 	case 0: manageGame(L"leagueoflegends", restore); break;
 	case 1: manageGame(L"dota2", restore); break;
-	case 2: manageGame(L"dota2", restore); break;
-	case 3: manageGame(L"smite2", restore); break;
-	case 4: manageGame(L"mgsΔ", restore); break;
-	case 5: manageGame(L"blands4", restore); break;
-	case 6: manageGame(L"oblivionr", restore); break;
-	case 7: manageGame(L"silenthillf", restore); break;
-	case 8: manageGame(L"outworlds2", restore); break;
-	case 9: manageGame(L"minecraft", restore); break;
-	case 10: manageTask(L"cafe"); break;
+	case 2: manageGame(L"smite2", restore); break;
+	case 3: manageGame(L"mgsΔ", restore); break;
+	case 4: manageGame(L"blands4", restore); break;
+	case 5: manageGame(L"oblivionr", restore); break;
+	case 6: manageGame(L"silenthillf", restore); break;
+	case 7: manageGame(L"outworlds2", restore); break;
+	case 8: manageGame(L"minecraft", restore); break;
+	case 9: manageTask(L"cafe"); break;
 	default: break;
 	}
 }
