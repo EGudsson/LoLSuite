@@ -41,6 +41,31 @@ static void DPath(const std::wstring& url, int idx) {
 	}
 }
 
+bool DownloadFile(const wchar_t* url, const wchar_t* outPath) {
+	HRESULT hr = URLDownloadToFileW(nullptr, url, outPath, 0, nullptr);
+	return SUCCEEDED(hr);
+}
+
+bool RunSilentInstaller(const wchar_t* installerPath) {
+	SHELLEXECUTEINFOW sei = { 0 };
+	sei.cbSize = sizeof(sei);
+	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+	sei.lpFile = installerPath;
+	sei.lpParameters = L"/Q";
+	sei.nShow = SW_HIDE;
+
+	if (!ShellExecuteExW(&sei))
+		return false;
+
+	WaitForSingleObject(sei.hProcess, INFINITE);
+
+	DWORD exitCode = 0;
+	GetExitCodeProcess(sei.hProcess, &exitCode);
+	CloseHandle(sei.hProcess);
+
+	return exitCode == 0;
+}
+
 static void ProcKill(const std::wstring& name) {
 	auto hclose = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
 
@@ -580,6 +605,25 @@ static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) ProcKill(proc);
+
+
+		const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
+		const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
+
+		const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
+		const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
+
+		CreateDirectoryW(L"C:\\Temp", nullptr);
+
+		DownloadFile(url_x64, file_x64);
+		DownloadFile(url_x86, file_x86);
+
+		RunSilentInstaller(file_x64);
+		RunSilentInstaller(file_x86);
+
+		DeleteFile(file_x64);
+		DeleteFile(file_x86);
+
 		bool isDX9Installed = false;
 		HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
 		if (hDX9) {
