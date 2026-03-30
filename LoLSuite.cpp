@@ -132,86 +132,49 @@ static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 	}
 }
 
-static void DynPS(const std::vector<std::wstring>& commands)
+static void DynPS(const std::vector<std::wstring>& cmds)
 {
 	std::wstring script;
-	for (const auto& cmd : commands)
-		script += cmd + L"; ";
-
+	for (auto& c : cmds) script += c + L"; ";
 	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
 
-	wchar_t pwshPath[MAX_PATH + 1];
-	bool hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
-		MAX_PATH + 1, pwshPath, nullptr) != 0;
+	wchar_t pwsh[MAX_PATH + 1], winget[MAX_PATH + 1];
+	bool hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
+	bool hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
 
-	const wchar_t* shellToUse = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
-
-	if (!hasPwsh)
-	{
-		wchar_t wingetPath[MAX_PATH + 1];
-		bool hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
-			MAX_PATH + 1, wingetPath, nullptr) != 0;
-
-		if (!hasWinget)
-		{
-			SHELLEXECUTEINFO seiFix{};
-			seiFix.cbSize = sizeof(seiFix);
-			seiFix.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-			seiFix.lpVerb = L"runas";
-			seiFix.lpFile = L"powershell.exe";
-			seiFix.lpParameters = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"";
-			seiFix.nShow = SW_HIDE;
-
-			if (ShellExecuteExW(&seiFix))
-			{
-				if (seiFix.hProcess && seiFix.hProcess != INVALID_HANDLE_VALUE)
-				{
-					WaitForSingleObject(seiFix.hProcess, INFINITE);
-					CloseHandle(seiFix.hProcess);
-				}
-
-				hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr,
-					MAX_PATH + 1, wingetPath, nullptr) != 0;
-			}
+	auto run = [&](const wchar_t* file, const wchar_t* p) {
+		SHELLEXECUTEINFO s{ sizeof(s) };
+		s.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+		s.lpVerb = L"runas";
+		s.lpFile = file;
+		s.lpParameters = p;
+		s.nShow = SW_HIDE;
+		if (ShellExecuteExW(&s) && s.hProcess) {
+			WaitForSingleObject(s.hProcess, INFINITE);
+			CloseHandle(s.hProcess);
 		}
+		};
 
-		if (hasWinget)
-		{
-			SHELLEXECUTEINFO seiInstall{};
-			seiInstall.cbSize = sizeof(seiInstall);
-			seiInstall.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-			seiInstall.lpVerb = L"runas";
-			seiInstall.lpFile = L"winget";
-			seiInstall.lpParameters = L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements";
-			seiInstall.nShow = SW_HIDE;
+	if (!hasPwsh) {
+		if (!hasWinget) {
+			run(
+				L"powershell.exe",
+				L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\""
+			);
 
-			if (ShellExecuteExW(&seiInstall))
-			{
-				if (seiInstall.hProcess && seiInstall.hProcess != INVALID_HANDLE_VALUE)
-				{
-					WaitForSingleObject(seiInstall.hProcess, INFINITE);
-					CloseHandle(seiInstall.hProcess);
-				}
-
-				hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr,
-					MAX_PATH + 1, pwshPath, nullptr) != 0;
-
-				if (hasPwsh)
-					shellToUse = L"pwsh.exe";
-			}
+			hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
+		}
+		if (hasWinget) {
+			run(L"winget",
+				L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements");
+			hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
 		}
 	}
 
-	SHELLEXECUTEINFO sei{};
-	sei.cbSize = sizeof(sei);
-	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-	sei.lpVerb = L"runas";
-	sei.lpFile = shellToUse;
-	sei.lpParameters = args.c_str();
-	sei.nShow = SW_HIDE;
-
-	ExecuteAndWait(sei);
+	const wchar_t* shell = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
+	run(shell, args.c_str());
 }
+
 
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
@@ -605,23 +568,21 @@ static void manageTask(const std::wstring& task) {
 	if (task == L"cafe") {
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) ProcKill(proc);
+		CreateDirectoryW(L"C:\\Temp", nullptr);
+		if (x64)
+		{
+			const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
+			const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
+			DownloadFile(url_x64, file_x64);
+			RunSilentInstaller(file_x64);
+			DeleteFile(file_x64);
+		}
 
-
-		const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
 		const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
-
-		const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
 		const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
 
-		CreateDirectoryW(L"C:\\Temp", nullptr);
-
-		DownloadFile(url_x64, file_x64);
 		DownloadFile(url_x86, file_x86);
-
-		RunSilentInstaller(file_x64);
 		RunSilentInstaller(file_x86);
-
-		DeleteFile(file_x64);
 		DeleteFile(file_x86);
 
 		bool isDX9Installed = false;
@@ -864,10 +825,9 @@ static void manageTask(const std::wstring& task) {
 		};
 
 		std::vector<std::wstring> filteredApps;
-		bool is64Bit = x64();
 
 		for (const auto& app : apps) {
-			if (!is64Bit &&
+			if (!x64 &&
 				app.find(L"Microsoft.VCRedist.") != std::wstring::npos &&
 				app.find(L".x64") != std::wstring::npos) {
 				continue;
