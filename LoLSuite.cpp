@@ -189,7 +189,7 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 }
 
 std::wstring browse(const std::wstring& pathLabel) {
-	std::wstring iniPath = (std::filesystem::current_path() / L"MOBASuite.cfg").wstring();
+	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
 	wchar_t savedPath[MAX_PATH] = {};
 	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
 
@@ -199,7 +199,7 @@ std::wstring browse(const std::wstring& pathLabel) {
 	}
 
 	std::wstring message = L"Select: " + pathLabel;
-	MessageBoxEx(nullptr, message.c_str(), L"MOBASuite", MB_OK, 0);
+	MessageBoxEx(nullptr, message.c_str(), L"LoLSuite", MB_OK, 0);
 	b[0].clear();
 	std::wstring selectedPath;
 
@@ -1107,12 +1107,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
 		LoadCursor(nullptr, IDC_ARROW),
 		CreateSolidBrush(RGB(32,32,32)),
-		nullptr, L"MOBASuite", nullptr
+		nullptr, L"LoLSuite", nullptr
 	};
 	RegisterClassEx(&wc);
 
 	hWnd = CreateWindowEx(
-		WS_EX_LAYERED, L"MOBASuite", L"FPS Booster",
+		WS_EX_LAYERED, L"LoLSuite", L"FPS Booster",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
 		nullptr, nullptr, hInstance, nullptr
