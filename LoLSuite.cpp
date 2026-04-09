@@ -818,9 +818,9 @@ static void manageTask(const std::wstring& task) {
 		for (auto& s : services)
 			serviceman(s, true);
 
-		std::vector<std::wstring> apps = {
+		std::vector<std::wstring> apps = {L"Microsoft.OpenCLGLVulkanCompatibilityPack",
 		    L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
-			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"9N0DX20HK701", L"9MZPRTH5C0TB", L"9MZ1SNWT0N5D", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9NQPSL29BFFF", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
+			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.PowerShell",L"Microsoft.WindowsTerminal", L"9MZPRTH5C0TB", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
 			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.EdgeWebView2Runtime"
 		};
 
@@ -932,6 +932,40 @@ static void manageTask(const std::wstring& task) {
 				CacheClear(*local / browser / L"Default/Cache");
 			}
 		}
+	}
+	if (IsWindows10OrGreater)
+	{
+		HKEY hKey;
+
+		RegOpenKeyExW(
+			HKEY_CURRENT_USER,
+			L"Console\\%%Startup",
+			0,
+			KEY_SET_VALUE,
+			&hKey
+		);
+
+		const wchar_t* value = L"WindowsTerminal";
+
+		RegSetValueExW(
+			hKey,
+			L"DelegationConsole",
+			0,
+			REG_SZ,
+			reinterpret_cast<const BYTE*>(value),
+			(wcslen(value) + 1) * sizeof(wchar_t)
+		);
+
+		RegSetValueExW(
+			hKey,
+			L"DelegationTerminal",
+			0,
+			REG_SZ,
+			reinterpret_cast<const BYTE*>(value),
+			(wcslen(value) + 1) * sizeof(wchar_t)
+		);
+
+		RegCloseKey(hKey);
 	}
 }
 
