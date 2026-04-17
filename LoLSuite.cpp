@@ -100,17 +100,16 @@ static bool x64()
 		}
 	}
 
-	// Fallback for Win7/8/early Win10
 	using Fn = BOOL(WINAPI*)(HANDLE, PBOOL);
 	auto fn = reinterpret_cast<Fn>(GetProcAddress(k32, "IsWow64Process"));
 
 	if (fn) {
 		BOOL wow = FALSE;
 		if (fn(GetCurrentProcess(), &wow))
-			return wow; // wow = 32‑bit process on 64‑bit OS
+			return wow;
 	}
 
-	return false; // 32‑bit OS
+	return false;
 }
 
 
@@ -160,16 +159,11 @@ static void DynPS(const std::vector<std::wstring>& cmds)
 
 	if (!hasPwsh) {
 		if (!hasWinget) {
-			run(
-				L"powershell.exe",
-				L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\""
-			);
-
+			run(L"powershell.exe", L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"");
 			hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
 		}
 		if (hasWinget) {
-			run(L"winget",
-				L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements");
+			run(L"winget", L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements");
 			hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
 		}
 	}
@@ -177,7 +171,6 @@ static void DynPS(const std::vector<std::wstring>& cmds)
 	const wchar_t* shell = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
 	run(shell, args.c_str());
 }
-
 
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
@@ -515,7 +508,6 @@ static void manageGame(const std::wstring& game, bool restore) {
 		std::filesystem::remove_all(configPath);
 		configPath /= "launcher_profiles.json";
 		std::vector<std::wstring> cmds;
-
 		cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
 
 		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
@@ -525,7 +517,6 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
 		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
-
 		DynPS(cmds);
 
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
