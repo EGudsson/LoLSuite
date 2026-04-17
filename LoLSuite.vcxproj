@@ -14,7 +14,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{633cf62c-8fc0-4438-9e2b-507adb8289fe}</ProjectGuid>
-    <RootNamespace>MOBASweet</RootNamespace>
+    <RootNamespace>LoLSuite</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.28000.0</WindowsTargetPlatformVersion>
     <ProjectName>FPS Booster + DirectX Unblocker</ProjectName>
   </PropertyGroup>
