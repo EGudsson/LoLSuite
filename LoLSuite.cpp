@@ -87,29 +87,32 @@ static bool x64()
 {
 	USHORT processMachine = 0, nativeMachine = 0;
 
-	if (IsWindows10OrGreater()) {
-		auto k32 = GetModuleHandleW(L"kernel32.dll");
-		if (k32) {
-			using Fn2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
-			auto fn2 = reinterpret_cast<Fn2>(GetProcAddress(k32, "IsWow64Process2"));
-			if (fn2) {
-				if (fn2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
-					return nativeMachine != IMAGE_FILE_MACHINE_UNKNOWN;
-				}
-			}
-		}
-	}
-
-	BOOL wow = FALSE;
 	auto k32 = GetModuleHandleW(L"kernel32.dll");
 	if (!k32) return false;
 
+	using Fn2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
+	auto fn2 = reinterpret_cast<Fn2>(GetProcAddress(k32, "IsWow64Process2"));
+
+	if (fn2) {
+		if (fn2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
+			return nativeMachine == IMAGE_FILE_MACHINE_AMD64 ||
+				nativeMachine == IMAGE_FILE_MACHINE_ARM64;
+		}
+	}
+
+	// Fallback for Win7/8/early Win10
 	using Fn = BOOL(WINAPI*)(HANDLE, PBOOL);
 	auto fn = reinterpret_cast<Fn>(GetProcAddress(k32, "IsWow64Process"));
-	if (!fn) return false;
 
-	return fn(GetCurrentProcess(), &wow) && wow;
+	if (fn) {
+		BOOL wow = FALSE;
+		if (fn(GetCurrentProcess(), &wow))
+			return wow; // wow = 32‑bit process on 64‑bit OS
+	}
+
+	return false; // 32‑bit OS
 }
+
 
 static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 	if (!ShellExecuteEx(&sei)) {
