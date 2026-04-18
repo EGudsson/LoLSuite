@@ -1,9 +1,7 @@
-﻿#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+﻿#include <windows.h>
 #include <filesystem>
 #include <urlmon.h>
 #include <ShObjIdl_core.h>
-#include <Shlobj_core.h>
 #include <TlHelp32.h>
 #include <shellapi.h>
 #include <wininet.h>
@@ -12,6 +10,8 @@
 #include <thread>
 #include <VersionHelpers.h>
 #include "resource.h"
+#include <shlobj.h>
+
 
 int cb_index = 0;
 std::vector<std::wstring> b(159);
@@ -45,6 +45,45 @@ bool DownloadFile(const wchar_t* url, const wchar_t* outPath) {
 	HRESULT hr = URLDownloadToFileW(nullptr, url, outPath, 0, nullptr);
 	return SUCCEEDED(hr);
 }
+
+bool CreateDesktopShortcut()
+{
+    PWSTR desktopPath = nullptr;
+    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktopPath);
+    if (FAILED(hr)) return false;
+
+    wchar_t shortcutPath[MAX_PATH];
+    swprintf_s(shortcutPath, L"%s\\LoLSuite - FPS Booster.lnk", desktopPath);
+    CoTaskMemFree(desktopPath);
+
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+
+    IShellLinkW* link = nullptr;
+    hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+                          IID_IShellLinkW, reinterpret_cast<void**>(&link));
+    if (FAILED(hr)) return false;
+
+    link->SetPath(exePath);
+    link->SetArguments(L"");
+    link->SetDescription(L"FPS Booster");
+    link->SetIconLocation(exePath, 0);
+
+    IPersistFile* file = nullptr;
+    hr = link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&file));
+    if (FAILED(hr)) {
+        link->Release();
+        return false;
+    }
+
+    hr = file->Save(shortcutPath, TRUE);
+
+    file->Release();
+    link->Release();
+
+    return SUCCEEDED(hr);
+}
+
 
 bool RunSilentInstaller(const wchar_t* installerPath) {
 	SHELLEXECUTEINFOW sei = { 0 };
@@ -1055,6 +1094,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return TRUE;
 	}
 
+
+
 	case WM_COMMAND: {
 		const UINT id = LOWORD(wParam);
 		const UINT code = HIWORD(wParam);
@@ -1111,6 +1152,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
 		nullptr, nullptr, hInstance, nullptr
 	);
+
+	CoInitialize(nullptr);
+	CreateDesktopShortcut();
+	CoUninitialize();
+
 
 	UINT dpi = GetDpiForWindow(hWnd);
 	int logicalSize = 16;

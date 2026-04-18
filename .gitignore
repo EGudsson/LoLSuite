@@ -41,3 +41,6 @@
 .vs
 x64
 Release
+
+# Archives
+*.zip
