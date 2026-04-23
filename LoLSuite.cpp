@@ -13,50 +13,45 @@
 #include <shlobj.h>
 #include <dwmapi.h>
 
-void SetDwmAttribute(HWND hWnd, DWMWINDOWATTRIBUTE attr, const void* value, DWORD size)
+inline void DwmSet(HWND hWnd, DWMWINDOWATTRIBUTE attr, auto&& value)
 {
-	DwmSetWindowAttribute(hWnd, attr, value, size);
+	DwmSetWindowAttribute(
+		hWnd,
+		attr,
+		&value,
+		sizeof(value)
+	);
 }
 
-bool isWin11 = IsWindowsVersionOrGreater(10, 0, 22000);
+inline void EnableBackdrop(HWND hWnd, bool Mica)
+{
+	BOOL dark = TRUE;
+	DwmSet(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, dark);
+	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+	DwmSet(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, corner);
+	DWM_SYSTEMBACKDROP_TYPE backdrop = Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
+	DwmSet(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, backdrop);
+}
 
-const wchar_t* fontName = isWin11 ? L"Segoe UI Variable" : L"Segoe UI";
+const wchar_t* font = L"Segoe UI Variable";
 
 int cb_index = 0;
 std::vector<std::wstring> b(159);
-HWND hWnd, hwndPatch, hwndRestore, combo;
+HWND hWnd, patch, restore, listbox;
 
-void EnableBackdrop(HWND hWnd, bool useMica)
-{
-	// Dark mode (recommended for Mica/Acrylic)
-	BOOL dark = TRUE;
-	SetDwmAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
-
-	// Rounded corners
-	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
-	SetDwmAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
-
-	// Backdrop type (Mica or Acrylic-like)
-	DWM_SYSTEMBACKDROP_TYPE backdrop =
-		useMica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
-
-	SetDwmAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
-}
-
-
-static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
+static std::wstring JoinP(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
 }
 
-static void APath(int index, const std::wstring& addition) {
-	b[index] = JPath(b[index], addition);
+static void AppendP(int index, const std::wstring& addition) {
+	b[index] = JoinP(b[index], addition);
 }
 
-static void CPath(int destIndex, int srcIndex, const std::wstring& addition) {
-	b[destIndex] = JPath(b[srcIndex], addition);
+static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) {
+	b[destIndex] = JoinP(b[srcIndex], addition);
 }
 
-static void DPath(const std::wstring& url, int idx) {
+static void Server(const std::wstring& url, int idx) {
 	const std::wstring targetUrl = L"https://lolroms.com/buffer/" + url;
 	const std::wstring& filePath = b[idx];
 	const std::wstring zonePath = filePath + L":Zone.Identifier";
@@ -68,51 +63,41 @@ static void DPath(const std::wstring& url, int idx) {
 	}
 }
 
-bool DownloadFile(const wchar_t* url, const wchar_t* outPath) {
-	HRESULT hr = URLDownloadToFileW(nullptr, url, outPath, 0, nullptr);
+bool Download(const wchar_t* url, const wchar_t* outPath) {
+	HRESULT hr = URLDownloadToFile(nullptr, url, outPath, 0, nullptr);
 	return SUCCEEDED(hr);
 }
 
-bool CreateDesktopShortcut()
+bool Shortcut()
 {
     PWSTR desktopPath = nullptr;
     HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktopPath);
     if (FAILED(hr)) return false;
-
-    wchar_t shortcutPath[MAX_PATH];
+    wchar_t shortcutPath[MAX_PATH+1];
     swprintf_s(shortcutPath, L"%s\\LoLSuite - FPS Booster.lnk", desktopPath);
     CoTaskMemFree(desktopPath);
-
-    wchar_t exePath[MAX_PATH];
-    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-
+    wchar_t exePath[MAX_PATH+1];
+    GetModuleFileName(nullptr, exePath, MAX_PATH);
     IShellLinkW* link = nullptr;
-    hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
-                          IID_IShellLinkW, reinterpret_cast<void**>(&link));
+    hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void**>(&link));
     if (FAILED(hr)) return false;
-
     link->SetPath(exePath);
     link->SetArguments(L"");
     link->SetDescription(L"FPS Booster");
     link->SetIconLocation(exePath, 0);
-
     IPersistFile* file = nullptr;
     hr = link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&file));
     if (FAILED(hr)) {
         link->Release();
         return false;
     }
-
     hr = file->Save(shortcutPath, TRUE);
-
     file->Release();
     link->Release();
-
     return SUCCEEDED(hr);
 }
 
-
-bool RunSilentInstaller(const wchar_t* installerPath) {
+bool qInstall(const wchar_t* installerPath) {
 	SHELLEXECUTEINFOW sei = { 0 };
 	sei.cbSize = sizeof(sei);
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -120,7 +105,7 @@ bool RunSilentInstaller(const wchar_t* installerPath) {
 	sei.lpParameters = L"/Q";
 	sei.nShow = SW_HIDE;
 
-	if (!ShellExecuteExW(&sei))
+	if (!ShellExecuteEx(&sei))
 		return false;
 
 	WaitForSingleObject(sei.hProcess, INFINITE);
@@ -132,7 +117,7 @@ bool RunSilentInstaller(const wchar_t* installerPath) {
 	return exitCode == 0;
 }
 
-static void ProcKill(const std::wstring& name) {
+static void PKill(const std::wstring& name) {
 	auto hclose = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
 
 	std::unique_ptr<void, decltype(hclose)>
@@ -153,7 +138,7 @@ static bool x64()
 {
 	USHORT processMachine = 0, nativeMachine = 0;
 
-	auto k32 = GetModuleHandleW(L"kernel32.dll");
+	auto k32 = GetModuleHandle(L"kernel32.dll");
 	if (!k32) return false;
 
 	using Fn2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
@@ -200,44 +185,6 @@ static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
 	}
 }
 
-static void DynPS(const std::vector<std::wstring>& cmds)
-{
-	std::wstring script;
-	for (auto& c : cmds) script += c + L"; ";
-	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
-
-	wchar_t pwsh[MAX_PATH + 1], winget[MAX_PATH + 1];
-	bool hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
-	bool hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
-
-	auto run = [&](const wchar_t* file, const wchar_t* p) {
-		SHELLEXECUTEINFO s{ sizeof(s) };
-		s.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-		s.lpVerb = L"runas";
-		s.lpFile = file;
-		s.lpParameters = p;
-		s.nShow = SW_HIDE;
-		if (ShellExecuteExW(&s) && s.hProcess) {
-			WaitForSingleObject(s.hProcess, INFINITE);
-			CloseHandle(s.hProcess);
-		}
-		};
-
-	if (!hasPwsh) {
-		if (!hasWinget) {
-			run(L"powershell.exe", L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"");
-			hasWinget = SearchPathW(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
-		}
-		if (hasWinget) {
-			run(L"winget", L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements");
-			hasPwsh = SearchPathW(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
-		}
-	}
-
-	const wchar_t* shell = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
-	run(shell, args.c_str());
-}
-
 static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
 	SHELLEXECUTEINFO sei{
 		.cbSize = sizeof(SHELLEXECUTEINFO),
@@ -250,9 +197,46 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
 	ExecuteAndWait(sei, wait);
 }
 
+static void PShell(const std::vector<std::wstring>& cmds)
+{
+	std::wstring script;
+	for (auto& c : cmds) script += c + L"; ";
+	std::wstring args = L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\"";
+
+	wchar_t pwsh[MAX_PATH + 1], winget[MAX_PATH + 1];
+	bool hasPwsh = SearchPath(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
+	bool hasWinget = SearchPath(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
+
+	auto run = [&](const wchar_t* file, const wchar_t* p) {
+		SHELLEXECUTEINFO s{ sizeof(s) };
+		s.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+		s.lpVerb = L"runas";
+		s.lpFile = file;
+		s.lpParameters = p;
+		s.nShow = SW_HIDE;
+		if (ShellExecuteEx(&s) && s.hProcess) {
+			WaitForSingleObject(s.hProcess, INFINITE);
+			CloseHandle(s.hProcess);
+		}
+		};
+
+	if (!hasWinget) {
+		run(L"powershell.exe", L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"");
+		hasWinget = SearchPath(nullptr, L"winget.exe", nullptr, MAX_PATH + 1, winget, nullptr);
+	}
+
+	if (!hasPwsh) {
+			run(L"winget", L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements");
+			hasPwsh = SearchPath(nullptr, L"pwsh.exe", nullptr, MAX_PATH + 1, pwsh, nullptr);
+	}
+
+	const wchar_t* shell = hasPwsh ? L"pwsh.exe" : L"powershell.exe";
+	run(shell, args.c_str());
+}
+
 std::wstring browse(const std::wstring& pathLabel) {
 	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
-	wchar_t savedPath[MAX_PATH] = {};
+	wchar_t savedPath[MAX_PATH+1] = {};
 	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
 
 	if (wcslen(savedPath) > 0) {
@@ -299,7 +283,7 @@ std::wstring browse(const std::wstring& pathLabel) {
 	return b[0];
 }
 
-static void serviceman(const std::wstring& serviceName, bool start, bool restart = false) {
+static void service(const std::wstring& serviceName, bool start, bool restart = false) {
 	struct ServiceHandleDeleter {
 		void operator()(SC_HANDLE h) const {
 			if (h) CloseServiceHandle(h);
@@ -348,52 +332,65 @@ struct GameConfig {
 	std::wstring steamUrl;
 };
 
-void ProcessGame(const GameConfig& config, bool restore) {
+bool FileExists(const wchar_t* name)
+{
+	wchar_t path[MAX_PATH+1];
+	GetSystemDirectory(path, MAX_PATH+1);
+	wcscat_s(path, L"\\");
+	wcscat_s(path, name);
+	return GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES;
+}
+
+bool IsDX9RedistInstalled()
+{
+	return FileExists(L"d3dx9_43.dll") && FileExists(L"D3DCompiler_43.dll") && FileExists(L"XAudio2_7.dll");
+}
+
+void Game(const GameConfig& config, bool restore) {
 	browse(config.baseDir);
 	for (const auto& proc : config.processes)
-		ProcKill(proc);
+		PKill(proc);
 
 	for (const auto& [dst, src, path] : config.cpaths)
-		CPath(dst, src, path);
+		CombineP(dst, src, path);
 
 	for (const auto& op : config.fileOps) {
 		const std::wstring& filePath = restore ? op.restorePath : op.patchPath;
-		DPath(filePath, op.dstId);
+		Server(filePath, op.dstId);
 	}
 
 	Run(config.steamUrl, L"", false);
 }
 
-static void manageGame(const std::wstring& game, bool restore) {
+static void manage(const std::wstring& game, bool restore) {
 	if (game == L"leagueoflegends") {
 		browse(L"Riot Games Base Folder");
 		for (const auto& proc : {
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"LeagueCrashHandler64.exe", L"Riot Client.exe", L"RiotClientServices.exe",
 			L"RiotClientCrashHandler.exe"
-			}) ProcKill(proc);
-		CPath(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
-		APath(0, L"League of Legends");
+			}) PKill(proc);
+		CombineP(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
+		AppendP(0, L"League of Legends");
 		for (const auto& [i, f] : std::vector<std::pair<int, std::wstring>>{
 			{2, L"concrt140.dll"}, {3, L"d3dcompiler_47.dll"}, {4, L"msvcp140.dll"},
 			{5, L"msvcp140_1.dll"}, {6, L"msvcp140_2.dll"}, {7, L"msvcp140_codecvt_ids.dll"},
 			{8, L"ucrtbase.dll"}, {9, L"vcruntime140.dll"}, {10, L"vcruntime140_1.dll"}
 			}) {
-			CPath(i, 0, f);
-			DPath(restore ? L"restore/lol/" + f : L"patch/" + f, i);
+			CombineP(i, 0, f);
+			Server(restore ? L"restore/lol/" + f : L"patch/" + f, i);
 		}
-		CPath(11, 0, L"Game");
-		CPath(13, 11, L"D3DCompiler_47.dll");
-		CPath(12, 11, L"tbb.dll");
-		CPath(14, 0, L"d3dcompiler_47.dll");
+		CombineP(11, 0, L"Game");
+		CombineP(13, 11, L"D3DCompiler_47.dll");
+		CombineP(12, 11, L"tbb.dll");
+		CombineP(14, 0, L"d3dcompiler_47.dll");
 		if (restore)
 			std::filesystem::remove(b[12]);
 		else
-			DPath(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
-		auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" :
-			(x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
-		DPath(d3dPath, 13);
-		DPath(d3dPath, 14);
+			Server(x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", 12);
+		auto d3dPath = restore ? L"restore/lol/D3DCompiler_47.dll" : (x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll");
+		Server(d3dPath, 13);
+		Server(d3dPath, 14);
 		Run(b[1], L"", false);
 	}
 	if (game == L"dota2") {
@@ -412,7 +409,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 				},
 				L"steam://rungameid/570"
 		};
-		ProcessGame(dota2, restore);
+		Game(dota2, restore);
 	}
 	else if (game == L"smite2") {
 		GameConfig smite2{
@@ -435,11 +432,11 @@ static void manageGame(const std::wstring& game, bool restore) {
 			},
 			L"steam://rungameid/2437170"
 		};
-		ProcessGame(smite2, restore);
+		Game(smite2, restore);
 	}
-	else if (game == L"mgsΔ") {
-		GameConfig mgsΔ{
-			L"mgsΔ",
+	else if (game == L"mgs") {
+		GameConfig mgs{
+			L"mgs",
 			L"METAL GEAR SOLID Delta Base Dir",
 			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe", L"Foxhunt-Win64-Shipping.exe"},
 			{
@@ -469,7 +466,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			},
 			L"steam://rungameid/2417610"
 		};
-		ProcessGame(mgsΔ, restore);
+		Game(mgs, restore);
 	}
 	else if (game == L"blands4") {
 		GameConfig blands4{
@@ -492,7 +489,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			},
 			L"steam://rungameid/1285190"
 		};
-		ProcessGame(blands4, restore);
+		Game(blands4, restore);
 	}
 	else if (game == L"oblivionr") {
 		GameConfig oblivionr{
@@ -517,7 +514,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			},
 			L"steam://rungameid/2623190"
 		};
-		ProcessGame(oblivionr, restore);
+		Game(oblivionr, restore);
 	}
 	else if (game == L"silenthillf") {
 		GameConfig silenthillf{
@@ -542,7 +539,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			},
 			L"steam://rungameid/2947440"
 		};
-		ProcessGame(silenthillf, restore);
+		Game(silenthillf, restore);
 	}
 	else if (game == L"outworlds2") {
 		GameConfig outworlds2{
@@ -562,11 +559,11 @@ static void manageGame(const std::wstring& game, bool restore) {
 			},
 			L"steam://rungameid/1449110"
 		};
-		ProcessGame(outworlds2, restore);
+		Game(outworlds2, restore);
 	}
 	else if (game == L"minecraft")
 	{
-		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) ProcKill(proc);
+		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) PKill(proc);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -583,7 +580,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 
 		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
 		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
-		DynPS(cmds);
+		PShell(cmds);
 
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -617,47 +614,40 @@ static void manageGame(const std::wstring& game, bool restore) {
 		out.close();
 		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"java.exe", L"javaw.exe", L"MinecraftServer.exe", L"Minecraft.Windows.exe" })
 		{
-			ProcKill(proc);
+			PKill(proc);
 		}
 
 		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
 	}
 }
 
-static void manageTask(const std::wstring& task) {
+static void task(const std::wstring& task) {
 	if (task == L"cafe") {
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) ProcKill(proc);
+		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) PKill(proc);
 		CreateDirectoryW(L"C:\\Temp", nullptr);
 		if (x64())
 		{
 			const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
 			const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
-			DownloadFile(url_x64, file_x64);
-			RunSilentInstaller(file_x64);
+			Download(url_x64, file_x64);
+			qInstall(file_x64);
 			DeleteFile(file_x64);
 		}
 
 		const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
 		const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
 
-		DownloadFile(url_x86, file_x86);
-		RunSilentInstaller(file_x86);
+		Download(url_x86, file_x86);
+		qInstall(file_x86);
 		DeleteFile(file_x86);
 
-		bool isDX9Installed = false;
-		HMODULE hDX9 = LoadLibrary(L"d3dx9_43.dll");
-		if (hDX9) {
-			isDX9Installed = true;
-			FreeLibrary(hDX9);
-		}
-
-		if (!isDX9Installed) {
+		if (!IsDX9RedistInstalled()) {
 			constexpr int tmpIndex = 158;
 			constexpr int baseIndex = 0;
 
-			APath(tmpIndex, std::filesystem::current_path().wstring());
-			APath(tmpIndex, L"tmp");
+			AppendP(tmpIndex, std::filesystem::current_path().wstring());
+			AppendP(tmpIndex, L"tmp");
 			std::filesystem::create_directory(b[tmpIndex]);
 			std::vector<std::wstring> files = {
 			L"Apr2005_d3dx9_25_x64.cab",
@@ -821,8 +811,8 @@ static void manageTask(const std::wstring& task) {
 
 			for (size_t i = 0; i < files.size(); ++i) {
 				b[baseIndex + i].clear();
-				CPath(baseIndex + i, tmpIndex, files[i]);
-				DPath(L"DXSETUP/" + files[i], baseIndex + i);
+				CombineP(baseIndex + i, tmpIndex, files[i]);
+				Server(L"DXSETUP/" + files[i], baseIndex + i);
 			}
 
 			bool allFilesPresent = true;
@@ -840,9 +830,9 @@ static void manageTask(const std::wstring& task) {
 			std::filesystem::remove_all(b[tmpIndex]);
 		}
 
-		serviceman(L"W32Time", true);
+		service(L"W32Time", true);
 
-		DynPS({
+		PShell({
 			L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
 			L"wsreset -i",
 			L"w32tm /resync",
@@ -857,7 +847,7 @@ static void manageTask(const std::wstring& task) {
 
 		if (IsWindows10OrGreater())
 		{
-			DynPS({
+			PShell({
 				L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
 				L"sc config tzautoupdate start= auto",
 				L"sc config W32Time start= auto",
@@ -865,10 +855,10 @@ static void manageTask(const std::wstring& task) {
 				});
 		}
 
-		serviceman(L"tzautoupdate", true);
+		service(L"tzautoupdate", true);
 
 		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
-		for (auto& s : services) serviceman(s, false);
+		for (auto& s : services) service(s, false);
 
 		WCHAR winDir[MAX_PATH + 1];
 		if (GetWindowsDirectory(winDir, MAX_PATH + 1) > 0) {
@@ -876,7 +866,7 @@ static void manageTask(const std::wstring& task) {
 		}
 
 		for (auto& s : services)
-			serviceman(s, true);
+			service(s, true);
 
 		std::vector<std::wstring> apps = {L"Microsoft.OpenCLGLVulkanCompatibilityPack",
 		    L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
@@ -906,8 +896,8 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 
-		DynPS(uninstall);
-		DynPS(install);
+		PShell(uninstall);
+		PShell(install);
 
 		WCHAR localAppData[MAX_PATH + 1];
 		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
@@ -943,7 +933,7 @@ static void manageTask(const std::wstring& task) {
 		}
 
 		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
-			ProcKill(proc);
+			PKill(proc);
 		}
 
 		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
@@ -1031,24 +1021,24 @@ static void manageTask(const std::wstring& task) {
 
 static void handleCommand(int cbi, bool restore) {
 	switch (cbi) {
-	case 0: manageGame(L"leagueoflegends", restore); break;
-	case 1: manageGame(L"dota2", restore); break;
-	case 2: manageGame(L"smite2", restore); break;
-	case 3: manageGame(L"mgsΔ", restore); break;
-	case 4: manageGame(L"blands4", restore); break;
-	case 5: manageGame(L"oblivionr", restore); break;
-	case 6: manageGame(L"silenthillf", restore); break;
-	case 7: manageGame(L"outworlds2", restore); break;
-	case 8: manageGame(L"minecraft", restore); break;
-	case 9: manageTask(L"cafe"); break;
+	case 0: manage(L"leagueoflegends", restore); break;
+	case 1: manage(L"dota2", restore); break;
+	case 2: manage(L"smite2", restore); break;
+	case 3: manage(L"mgs", restore); break;
+	case 4: manage(L"blands4", restore); break;
+	case 5: manage(L"oblivionr", restore); break;
+	case 6: manage(L"silenthillf", restore); break;
+	case 7: manage(L"outworlds2", restore); break;
+	case 8: manage(L"minecraft", restore); break;
+	case 9: task(L"cafe"); break;
 	default: break;
 	}
 }
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	static HBRUSH hTransparentBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+	static HBRUSH transparentBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
 	static HBRUSH hBrush = CreateSolidBrush(RGB(180, 210, 255));
-	constexpr COLORREF kButtonText = RGB(32, 32, 32); // Win11 Settings text color
+	constexpr COLORREF kButtonText = RGB(32, 32, 32);
 
 	switch (msg)
 	{
@@ -1056,7 +1046,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		PAINTSTRUCT ps;
 		BeginPaint(hWnd, &ps);
-		// DO NOT PAINT ANYTHING → transparent client area
 		EndPaint(hWnd, &ps);
 		return 0;
 	}
@@ -1065,7 +1054,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		HDC hdc = (HDC)wParam;
 		SetBkMode(hdc, TRANSPARENT);
-		return (LRESULT)hTransparentBrush; // buttons transparent
+		return (LRESULT)transparentBrush;
 	}
 
 	case WM_CTLCOLORLISTBOX:
@@ -1075,16 +1064,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		HDC hdc = (HDC)wParam;
 		SetBkMode(hdc, TRANSPARENT);
-
-		// Match Windows 11 Settings text color
 		SetTextColor(hdc, kButtonText);
-
-		return (LRESULT)hBrush; // your light-blue background brush
+		return (LRESULT)hBrush;
 	}
 
-
-
-	// Prevent maximize
 	case WM_GETMINMAXINFO:
 	{
 		MINMAXINFO* mmi = (MINMAXINFO*)lParam;
@@ -1095,22 +1078,27 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return 0;
 	}
 
-	// DPI-aware font scaling
 	case WM_DPICHANGED:
 	{
 		UINT newDpi = HIWORD(wParam);
 		int logicalSize = 16;
 		int pixelHeight = -MulDiv(logicalSize, newDpi, 96);
 
-		HFONT newFont = CreateFontW(
-			pixelHeight, 0, 0, 0,
-			FW_NORMAL, FALSE, FALSE, FALSE,
-			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-			VARIABLE_PITCH | FF_SWISS, fontName
+		HFONT hFont = CreateFontW(
+			pixelHeight,
+			0, 0, 0,
+			FW_BOLD,
+			FALSE, FALSE, FALSE,
+			DEFAULT_CHARSET,
+			OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS,
+			CLEARTYPE_QUALITY,
+			VARIABLE_PITCH | FF_SWISS,
+			font
 		);
 
-		SendMessage(hWnd, WM_SETFONT, (WPARAM)newFont, TRUE);
+
+		SendMessage(hWnd, WM_SETFONT, (WPARAM)hFont, TRUE);
 		return 0;
 	}
 
@@ -1122,23 +1110,17 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 		const bool selected = (dis->itemState & ODS_SELECTED);
 		const bool hot = (dis->itemState & ODS_HOTLIGHT);
-
-		// Light blue theme
 		const COLORREF hoverOverlay = RGB(150, 190, 255);   // lighter blue
 		const COLORREF pressOverlay = RGB(100, 150, 255);   // deeper blue
 		const COLORREF borderColor = RGB(200, 220, 255);   // soft border
 		const COLORREF fg = RGB(20, 40, 80);      // dark blue text
-
-		// 1. DO NOT fill background → Mica shows through
-
-		// 2. Press overlay (strongest)
 		if (selected)
 		{
 			HBRUSH overlay = CreateSolidBrush(pressOverlay);
 			FillRect(dis->hDC, &dis->rcItem, overlay);
 			DeleteObject(overlay);
 		}
-		// 3. Hover overlay (only if not pressed)
+
 		else if (hot)
 		{
 			HBRUSH overlay = CreateSolidBrush(hoverOverlay);
@@ -1146,7 +1128,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			DeleteObject(overlay);
 		}
 
-		// 4. Draw rounded border
 		HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
 		HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
 		HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
@@ -1161,8 +1142,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		SelectObject(dis->hDC, oldBrush);
 		SelectObject(dis->hDC, oldPen);
 		DeleteObject(pen);
-
-		// 5. Draw text
 		SetTextColor(dis->hDC, fg);
 		SetBkMode(dis->hDC, TRANSPARENT);
 
@@ -1175,7 +1154,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return TRUE;
 	}
 
-	// Apply Mica/Acrylic when shown
 	case WM_SHOWWINDOW:
 		if (wParam)
 			EnableBackdrop(hWnd, true);
@@ -1245,10 +1223,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		nullptr, nullptr, hInstance, nullptr
 	);
 
-
-
 	CoInitialize(nullptr);
-	CreateDesktopShortcut();
+	Shortcut();
 	CoUninitialize();
 
 
@@ -1256,48 +1232,49 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	int logicalSize = 16;
 	int pixelHeight = -MulDiv(logicalSize, dpi, 96);
 
-	HFONT font = CreateFontW(
+	HFONT hFont = CreateFontW(
 		pixelHeight,
 		0, 0, 0,
-		FW_NORMAL,
+		FW_BOLD,
 		FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET,
 		OUT_DEFAULT_PRECIS,
 		CLIP_DEFAULT_PRECIS,
 		CLEARTYPE_QUALITY,
 		VARIABLE_PITCH | FF_SWISS,
-		fontName
+		font // ✔ LPCWSTR
 	);
 
-	SendMessage(hWnd, WM_SETFONT, (WPARAM)font, TRUE);
 
-	hwndPatch = CreateWindowEx(
-		0, L"BUTTON", L"Apply",
+	SendMessage(hWnd, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+	patch = CreateWindowEx(
+		0, L"BUTTON", L"Install",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
 		xPatch, TOP, BW, CH,
 		hWnd, HMENU(1), hInstance, nullptr
 	);
-	SendMessage(hwndPatch, WM_SETFONT, (WPARAM)font, TRUE);
+	SendMessage(patch, WM_SETFONT, (WPARAM)font, TRUE);
 
-	hwndRestore = CreateWindowEx(
-		0, L"BUTTON", L"Revert",
+	restore = CreateWindowEx(
+		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		xRestore, TOP, BW, CH,
 		hWnd, HMENU(2), hInstance, nullptr
 	);
-	SendMessage(hwndRestore, WM_SETFONT, (WPARAM)font, TRUE);
+	SendMessage(restore, WM_SETFONT, (WPARAM)font, TRUE);
 
-	combo = CreateWindowEx(
+	listbox = CreateWindowEx(
 		0, WC_COMBOBOX, nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
 		comboLeft, comboTop, comboWidth, 210,
 		hWnd, HMENU(3), hInstance, nullptr
 	);
-	SendMessage(combo, WM_SETFONT, (WPARAM)font, TRUE);
+	SendMessage(listbox, WM_SETFONT, (WPARAM)font, TRUE);
 
-	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
+	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(listbox, CB_ADDSTRING, 0, (LPARAM)s);
 
-	SendMessage(combo, CB_SETCURSEL, 0, 0);
+	SendMessage(listbox, CB_SETCURSEL, 0, 0);
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 	MSG msg;
