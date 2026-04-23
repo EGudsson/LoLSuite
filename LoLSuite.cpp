@@ -571,7 +571,7 @@ static void manageGame(const std::wstring& game, bool restore) {
 			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
 				updated += line + L"\n";
 		}
-		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25.0.2\\\\bin\\\\javaw.exe";
+		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25.0.3\\\\bin\\\\javaw.exe";
 		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
 			size_t pos = updated.find(type);
 			if (pos != std::wstring::npos) {
