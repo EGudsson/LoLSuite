@@ -11,6 +11,12 @@
 #include <VersionHelpers.h>
 #include "resource.h"
 #include <shlobj.h>
+#include <dwmapi.h>
+
+void SetDwmAttribute(HWND hWnd, DWMWINDOWATTRIBUTE attr, const void* value, DWORD size)
+{
+	DwmSetWindowAttribute(hWnd, attr, value, size);
+}
 
 bool isWin11 = IsWindowsVersionOrGreater(10, 0, 22000);
 
@@ -19,6 +25,24 @@ const wchar_t* fontName = isWin11 ? L"Segoe UI Variable" : L"Segoe UI";
 int cb_index = 0;
 std::vector<std::wstring> b(159);
 HWND hWnd, hwndPatch, hwndRestore, combo;
+
+void EnableBackdrop(HWND hWnd, bool useMica)
+{
+	// Dark mode (recommended for Mica/Acrylic)
+	BOOL dark = TRUE;
+	SetDwmAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+
+	// Rounded corners
+	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+	SetDwmAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
+
+	// Backdrop type (Mica or Acrylic-like)
+	DWM_SYSTEMBACKDROP_TYPE backdrop =
+		useMica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
+
+	SetDwmAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+}
+
 
 static std::wstring JPath(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
@@ -605,7 +629,7 @@ static void manageTask(const std::wstring& task) {
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) ProcKill(proc);
 		CreateDirectoryW(L"C:\\Temp", nullptr);
-		if (x64)
+		if (x64())
 		{
 			const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
 			const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
@@ -831,7 +855,7 @@ static void manageTask(const std::wstring& task) {
 			L"winget source update"
 			});
 
-		if (IsWindows10OrGreater)
+		if (IsWindows10OrGreater())
 		{
 			DynPS({
 				L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
@@ -863,7 +887,7 @@ static void manageTask(const std::wstring& task) {
 		std::vector<std::wstring> filteredApps;
 
 		for (const auto& app : apps) {
-			if (!x64 &&
+			if (!x64() &&
 				app.find(L"Microsoft.VCRedist.") != std::wstring::npos &&
 				app.find(L".x64") != std::wstring::npos) {
 				continue;
@@ -969,7 +993,7 @@ static void manageTask(const std::wstring& task) {
 			}
 		}
 	}
-	if (IsWindows10OrGreater)
+	if (IsWindows10OrGreater())
 	{
 		HKEY hKey;
 
@@ -1020,21 +1044,47 @@ static void handleCommand(int cbi, bool restore) {
 	default: break;
 	}
 }
-static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	constexpr COLORREF kTextColor = RGB(255, 255, 255);
-	constexpr COLORREF kButtonText = RGB(200, 200, 200);
-	constexpr COLORREF kBackground = RGB(30, 30, 30);
-	static HBRUSH hBrush = CreateSolidBrush(kBackground);
+static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	static HBRUSH hTransparentBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+	static HBRUSH hBrush = CreateSolidBrush(RGB(180, 210, 255));
+	constexpr COLORREF kButtonText = RGB(32, 32, 32); // Win11 Settings text color
 
-	switch (msg) {
-
-	case WM_CTLCOLORBTN: {
-		HDC hdc = (HDC)wParam;
-		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, kButtonText);
-		return (INT_PTR)GetStockObject(HOLLOW_BRUSH);
+	switch (msg)
+	{
+	case WM_PAINT:
+	{
+		PAINTSTRUCT ps;
+		BeginPaint(hWnd, &ps);
+		// DO NOT PAINT ANYTHING → transparent client area
+		EndPaint(hWnd, &ps);
+		return 0;
 	}
 
+	case WM_CTLCOLORBTN:
+	{
+		HDC hdc = (HDC)wParam;
+		SetBkMode(hdc, TRANSPARENT);
+		return (LRESULT)hTransparentBrush; // buttons transparent
+	}
+
+	case WM_CTLCOLORLISTBOX:
+	case WM_CTLCOLORSTATIC:
+	case WM_CTLCOLOREDIT:
+	case WM_CTLCOLORSCROLLBAR:
+	{
+		HDC hdc = (HDC)wParam;
+		SetBkMode(hdc, TRANSPARENT);
+
+		// Match Windows 11 Settings text color
+		SetTextColor(hdc, kButtonText);
+
+		return (LRESULT)hBrush; // your light-blue background brush
+	}
+
+
+
+	// Prevent maximize
 	case WM_GETMINMAXINFO:
 	{
 		MINMAXINFO* mmi = (MINMAXINFO*)lParam;
@@ -1045,7 +1095,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return 0;
 	}
 
-
+	// DPI-aware font scaling
 	case WM_DPICHANGED:
 	{
 		UINT newDpi = HIWORD(wParam);
@@ -1053,70 +1103,86 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		int pixelHeight = -MulDiv(logicalSize, newDpi, 96);
 
 		HFONT newFont = CreateFontW(
-			pixelHeight,
-			0, 0, 0,
-			FW_NORMAL,
-			FALSE, FALSE, FALSE,
-			DEFAULT_CHARSET,
-			OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS,
-			CLEARTYPE_QUALITY,
-			VARIABLE_PITCH | FF_SWISS,
-			fontName
+			pixelHeight, 0, 0, 0,
+			FW_NORMAL, FALSE, FALSE, FALSE,
+			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+			VARIABLE_PITCH | FF_SWISS, fontName
 		);
 
 		SendMessage(hWnd, WM_SETFONT, (WPARAM)newFont, TRUE);
 		return 0;
 	}
 
-	case WM_CTLCOLORLISTBOX:
-	case WM_CTLCOLORSTATIC:
-	case WM_CTLCOLOREDIT:
-	case WM_CTLCOLORSCROLLBAR: {
-		HDC hdc = (HDC)wParam;
-		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, kTextColor);
-		return (INT_PTR)hBrush;
-	}
-
-	case WM_DRAWITEM: {
+	case WM_DRAWITEM:
+	{
 		auto* dis = (LPDRAWITEMSTRUCT)lParam;
 		if (!dis || dis->CtlType != ODT_BUTTON)
 			return FALSE;
 
 		const bool selected = (dis->itemState & ODS_SELECTED);
-		const COLORREF bg = selected ? RGB(0, 120, 215) : kBackground;
-		const COLORREF fg = selected ? RGB(255, 255, 255) : kButtonText;
+		const bool hot = (dis->itemState & ODS_HOTLIGHT);
 
-		HBRUSH brush = CreateSolidBrush(bg);
-		FillRect(dis->hDC, &dis->rcItem, brush);
-		DeleteObject(brush);
+		// Light blue theme
+		const COLORREF hoverOverlay = RGB(150, 190, 255);   // lighter blue
+		const COLORREF pressOverlay = RGB(100, 150, 255);   // deeper blue
+		const COLORREF borderColor = RGB(200, 220, 255);   // soft border
+		const COLORREF fg = RGB(20, 40, 80);      // dark blue text
 
-		HPEN pen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+		// 1. DO NOT fill background → Mica shows through
+
+		// 2. Press overlay (strongest)
+		if (selected)
+		{
+			HBRUSH overlay = CreateSolidBrush(pressOverlay);
+			FillRect(dis->hDC, &dis->rcItem, overlay);
+			DeleteObject(overlay);
+		}
+		// 3. Hover overlay (only if not pressed)
+		else if (hot)
+		{
+			HBRUSH overlay = CreateSolidBrush(hoverOverlay);
+			FillRect(dis->hDC, &dis->rcItem, overlay);
+			DeleteObject(overlay);
+		}
+
+		// 4. Draw rounded border
+		HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
 		HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
 		HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
 
-		RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top,
-			dis->rcItem.right, dis->rcItem.bottom, 10, 10);
+		RoundRect(dis->hDC,
+			dis->rcItem.left,
+			dis->rcItem.top,
+			dis->rcItem.right,
+			dis->rcItem.bottom,
+			10, 10);
 
 		SelectObject(dis->hDC, oldBrush);
 		SelectObject(dis->hDC, oldPen);
 		DeleteObject(pen);
 
+		// 5. Draw text
 		SetTextColor(dis->hDC, fg);
 		SetBkMode(dis->hDC, TRANSPARENT);
 
 		wchar_t text[256];
 		GetWindowText(dis->hwndItem, text, 256);
+
 		DrawText(dis->hDC, text, -1, &dis->rcItem,
 			DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
 		return TRUE;
 	}
 
+	// Apply Mica/Acrylic when shown
+	case WM_SHOWWINDOW:
+		if (wParam)
+			EnableBackdrop(hWnd, true);
+		break;
 
-
-	case WM_COMMAND: {
+	case WM_COMMAND:
+	{
 		const UINT id = LOWORD(wParam);
 		const UINT code = HIWORD(wParam);
 
@@ -1142,10 +1208,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-
 	}
+
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
+
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
@@ -1157,21 +1224,28 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	int comboLeft = BS, comboTop = TOP + CH + 10, comboWidth = W - BS * 2;
 
 	WNDCLASSEXW wc{
-		sizeof(wc), CS_HREDRAW | CS_VREDRAW, WndProc,
-		0, 0, hInstance,
+		sizeof(wc),
+		CS_HREDRAW | CS_VREDRAW,
+		WndProc,
+		0, 0,
+		hInstance,
 		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
 		LoadCursor(nullptr, IDC_ARROW),
-		CreateSolidBrush(RGB(32,32,32)),
-		nullptr, L"LoLSuite", nullptr
+		(HBRUSH)GetStockObject(NULL_BRUSH),
+		nullptr,
+		L"LoLSuite",
+		nullptr
 	};
 	RegisterClassEx(&wc);
 
-	hWnd = CreateWindowEx(
-		WS_EX_LAYERED, L"LoLSuite", L"LoLSuite",
+
+	hWnd = CreateWindowEx(NULL, L"LoLSuite", L"LoLSuite v0.0.4",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
 		nullptr, nullptr, hInstance, nullptr
 	);
+
+
 
 	CoInitialize(nullptr);
 	CreateDesktopShortcut();
@@ -1196,9 +1270,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	);
 
 	SendMessage(hWnd, WM_SETFONT, (WPARAM)font, TRUE);
-
-
-	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
 	hwndPatch = CreateWindowEx(
 		0, L"BUTTON", L"Apply",
@@ -1227,10 +1298,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
 
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
-
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
-
 	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0)) {
 		TranslateMessage(&msg);
