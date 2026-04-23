@@ -12,6 +12,9 @@
 #include "resource.h"
 #include <shlobj.h>
 
+bool isWin11 = IsWindowsVersionOrGreater(10, 0, 22000);
+
+const wchar_t* fontName = isWin11 ? L"Segoe UI Variable" : L"Segoe UI";
 
 int cb_index = 0;
 std::vector<std::wstring> b(159);
@@ -1032,6 +1035,17 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return (INT_PTR)GetStockObject(HOLLOW_BRUSH);
 	}
 
+	case WM_GETMINMAXINFO:
+	{
+		MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+		mmi->ptMaxTrackSize.x = 99999;
+		mmi->ptMaxTrackSize.y = 99999;
+		mmi->ptMaxSize.x = 0;
+		mmi->ptMaxSize.y = 0;
+		return 0;
+	}
+
+
 	case WM_DPICHANGED:
 	{
 		UINT newDpi = HIWORD(wParam);
@@ -1039,13 +1053,19 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		int pixelHeight = -MulDiv(logicalSize, newDpi, 96);
 
 		HFONT newFont = CreateFontW(
-			pixelHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-			CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
+			pixelHeight,
+			0, 0, 0,
+			FW_NORMAL,
+			FALSE, FALSE, FALSE,
+			DEFAULT_CHARSET,
+			OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS,
+			CLEARTYPE_QUALITY,
+			VARIABLE_PITCH | FF_SWISS,
+			fontName
 		);
 
 		SendMessage(hWnd, WM_SETFONT, (WPARAM)newFont, TRUE);
-
 		return 0;
 	}
 
@@ -1147,7 +1167,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	RegisterClassEx(&wc);
 
 	hWnd = CreateWindowEx(
-		WS_EX_LAYERED, L"LoLSuite", L"FPS Booster",
+		WS_EX_LAYERED, L"LoLSuite", L"LoLSuite",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
 		nullptr, nullptr, hInstance, nullptr
@@ -1162,11 +1182,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	int logicalSize = 16;
 	int pixelHeight = -MulDiv(logicalSize, dpi, 96);
 
-	HFONT font = CreateFont(
-		pixelHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-		CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI"
+	HFONT font = CreateFontW(
+		pixelHeight,
+		0, 0, 0,
+		FW_NORMAL,
+		FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS,
+		CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY,
+		VARIABLE_PITCH | FF_SWISS,
+		fontName
 	);
+
+	SendMessage(hWnd, WM_SETFONT, (WPARAM)font, TRUE);
+
 
 	SetLayeredWindowAttributes(hWnd, 0, 229, LWA_ALPHA);
 
@@ -1194,7 +1224,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	);
 	SendMessage(combo, WM_SETFONT, (WPARAM)font, TRUE);
 
-	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Δ : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
+	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients (Admin)"}) SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)s);
 
 	SendMessage(combo, CB_SETCURSEL, 0, 0);
 
