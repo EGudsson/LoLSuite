@@ -1191,8 +1191,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 
 	return DefWindowProc(hWnd, msg, wParam, lParam);
-}
-
+}x
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
@@ -1218,7 +1217,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	};
 	RegisterClassEx(&wc);
 
-
 	hWnd = CreateWindowEx(NULL, L"LoLSuite", L"LoLSuite v0.0.4",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
@@ -1228,7 +1226,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	CoInitialize(nullptr);
 	Shortcut();
 	CoUninitialize();
-
 
 	UINT dpi = GetDpiForWindow(hWnd);
 	int logicalSize = 16;
