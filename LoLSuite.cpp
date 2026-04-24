@@ -1042,6 +1042,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 	switch (msg)
 	{
+	case WM_ERASEBKGND:
+		return 1;
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
@@ -1155,7 +1157,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 
 	case WM_SHOWWINDOW:
-		if (wParam)
+		if (wParam && !lParam)
 			EnableBackdrop(hWnd, true);
 		break;
 
@@ -1209,7 +1211,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		hInstance,
 		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
 		LoadCursor(nullptr, IDC_ARROW),
-		(HBRUSH)GetStockObject(NULL_BRUSH),
+		(HBRUSH)NULL_BRUSH,
 		nullptr,
 		L"LoLSuite",
 		nullptr
