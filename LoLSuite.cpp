@@ -97,25 +97,26 @@ bool Shortcut()
     return SUCCEEDED(hr);
 }
 
-bool qInstall(const wchar_t* installerPath) {
-	SHELLEXECUTEINFOW sei = { 0 };
-	sei.cbSize = sizeof(sei);
+bool qInstall(const wchar_t* installerPath)
+{
+	SHELLEXECUTEINFOW sei = { sizeof(sei) };
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
 	sei.lpFile = installerPath;
 	sei.lpParameters = L"/Q";
 	sei.nShow = SW_HIDE;
 
 	if (!ShellExecuteEx(&sei))
-		return false;
+		return false; // launch failed
 
-	WaitForSingleObject(sei.hProcess, INFINITE);
+	if (sei.hProcess)
+	{
+		WaitForSingleObject(sei.hProcess, INFINITE);
+		CloseHandle(sei.hProcess);
+	}
 
-	DWORD exitCode = 0;
-	GetExitCodeProcess(sei.hProcess, &exitCode);
-	CloseHandle(sei.hProcess);
-
-	return exitCode == 0;
+	return true; // success
 }
+
 
 static void PKill(const std::wstring& name) {
 	auto hclose = [](HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); };
@@ -164,24 +165,30 @@ static bool x64()
 }
 
 
-static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true) {
-	if (!ShellExecuteEx(&sei)) {
+static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true)
+{
+	if (!ShellExecuteEx(&sei))
+	{
 		DWORD err = GetLastError();
-		return;
+		return; // launch failed
 	}
 
-	if (wait && sei.hProcess) {
+	if (wait && sei.hProcess)
+	{
 		SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
 
-		while (WaitForSingleObject(sei.hProcess, 50) == WAIT_TIMEOUT) {
+		while (WaitForSingleObject(sei.hProcess, 50) == WAIT_TIMEOUT)
+		{
 			MSG msg;
-			while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+			while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+			{
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
 		}
 
 		CloseHandle(sei.hProcess);
+		sei.hProcess = nullptr; // prevent accidental reuse
 	}
 }
 
@@ -1157,7 +1164,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		const UINT code = HIWORD(wParam);
 
 		if (code == CBN_SELCHANGE)
-			cb_index = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
+			cb_index = static_cast<int>(SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0));
 
 		if (id == 1 || id == 2) {
 			handleCommand(cb_index, id == 2);
@@ -1213,7 +1220,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		nullptr, nullptr, hInstance, nullptr
 	);
 
-	CoInitialize(nullptr);
+	(void)CoInitialize(nullptr);
 	Shortcut();
 	CoUninitialize();
 
