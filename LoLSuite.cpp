@@ -1070,16 +1070,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return (LRESULT)hBrush;
 	}
 
-	case WM_GETMINMAXINFO:
-	{
-		MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-		mmi->ptMaxTrackSize.x = 99999;
-		mmi->ptMaxTrackSize.y = 99999;
-		mmi->ptMaxSize.x = 0;
-		mmi->ptMaxSize.y = 0;
-		return 0;
-	}
-
 	case WM_DPICHANGED:
 	{
 		UINT newDpi = HIWORD(wParam);
@@ -1191,7 +1181,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 
 	return DefWindowProc(hWnd, msg, wParam, lParam);
-}x
+}
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
