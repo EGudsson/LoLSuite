@@ -25,8 +25,6 @@ inline void DwmSet(HWND hWnd, DWMWINDOWATTRIBUTE attr, auto&& value)
 
 inline void EnableBackdrop(HWND hWnd, bool Mica)
 {
-	BOOL dark = TRUE;
-	DwmSet(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, dark);
 	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
 	DwmSet(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, corner);
 	DWM_SYSTEMBACKDROP_TYPE backdrop = Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
