@@ -1033,10 +1033,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			return FALSE;
 		const bool selected = (dis->itemState & ODS_SELECTED);
 		const bool hot = (dis->itemState & ODS_HOTLIGHT);
-		const COLORREF hoverOverlay = RGB(150, 190, 255);   // lighter blue
-		const COLORREF pressOverlay = RGB(100, 150, 255);   // deeper blue
-		const COLORREF borderColor = RGB(200, 220, 255);   // soft border
-		const COLORREF fg = RGB(20, 40, 80);      // dark blue text
+		const COLORREF hoverOverlay = RGB(150, 190, 255);
+		const COLORREF pressOverlay = RGB(100, 150, 255);
+		const COLORREF borderColor = RGB(200, 220, 255);
+		const COLORREF fg = RGB(20, 40, 80);
 		if (selected)
 		{
 			HBRUSH overlay = CreateSolidBrush(pressOverlay);
