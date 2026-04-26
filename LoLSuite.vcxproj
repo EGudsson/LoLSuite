@@ -11,36 +11,36 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <VCProjectVersion>17.0</VCProjectVersion>
+    <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{633cf62c-8fc0-4438-9e2b-507adb8289fe}</ProjectGuid>
     <RootNamespace>LoLSuite</RootNamespace>
+    <!-- Use the default VS2026 Windows SDK (adjust if your install uses a different one) -->
     <WindowsTargetPlatformVersion>10.0.28000.0</WindowsTargetPlatformVersion>
     <ProjectName>LoLSuite</ProjectName>
+    <!-- VS2026 default MSVC toolset -->
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <!-- Win32 / x64 configuration blocks -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <PreferredToolArchitecture>x86</PreferredToolArchitecture>
     <SpectreMitigation>Spectre</SpectreMitigation>
     <InterproceduralOptimization>true</InterproceduralOptimization>
-    <MSVCPreviewEnabled>true</MSVCPreviewEnabled>
+    <!-- VS2026 ships with 14.50; let VS pick exact minor version -->
     <VCToolsVersion>14.50.35717</VCToolsVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
     <SpectreMitigation>Spectre</SpectreMitigation>
     <InterproceduralOptimization>true</InterproceduralOptimization>
     <VCToolsVersion>14.50.35717</VCToolsVersion>
-    <MSVCPreviewEnabled>true</MSVCPreviewEnabled>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
@@ -68,7 +68,8 @@
       <PreprocessorDefinitions>
         NDEBUG;_WINDOWS;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)
       </PreprocessorDefinitions>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <!-- Explicitly target C++23 / latest C for VS2026 -->
+      <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <DebugInformationFormat>None</DebugInformationFormat>
       <StringPooling>true</StringPooling>
@@ -86,7 +87,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
-      <CCppSupport>Cpp20Support</CCppSupport>
+      <CCppSupport>Cpp23Support</CCppSupport>
       <PGOUsePreTrainedModel>false</PGOUsePreTrainedModel>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
