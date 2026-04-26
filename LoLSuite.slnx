@@ -1,8 +1,0 @@
-<Solution>
-  <Configurations>
-    <BuildType Name="Release" />
-    <Platform Name="Win32" />
-    <Platform Name="x64" />
-  </Configurations>
-  <Project Path="LoLSuite.vcxproj" Id="633cf62c-8fc0-4438-9e2b-507adb8289fe" />
-</Solution>
