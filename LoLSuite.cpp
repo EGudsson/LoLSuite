@@ -1333,27 +1333,9 @@ int WINAPI wWinMain(
 
 	SendMessageW(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
 
-	patch = CreateWindowExW(
-		0, L"BUTTON", L"Install",
-		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
-		xPatch, TOP, BW,  CH,
-		hWnd, HMENU(1), hInstance, nullptr
-	);
-
-	restore = CreateWindowExW(
-		0, L"BUTTON", L"Restore",
-		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
-		xRestore, TOP, BW, CH,
-		hWnd, HMENU(2), hInstance, nullptr
-	);
-
-	listbox = CreateWindowExW(
-		0, WC_COMBOBOX, nullptr,
-		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-		comboLeft, comboTop, comboWidth, 210,
-		hWnd, HMENU(3), hInstance, nullptr
-	);
-
+	patch = CreateWindowExW(0, L"BUTTON", L"Install", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
+	restore = CreateWindowExW(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
+	listbox = CreateWindowExW(0, WC_COMBOBOX, nullptr, CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL, comboLeft, comboTop, comboWidth, 210, hWnd, HMENU(3), hInstance, nullptr);
 	SendMessageW(patch, WM_SETFONT, (WPARAM)uiFont, TRUE);
 	SendMessageW(restore, WM_SETFONT, (WPARAM)uiFont, TRUE);
 	SendMessageW(listbox, WM_SETFONT, (WPARAM)uiFont, TRUE);
