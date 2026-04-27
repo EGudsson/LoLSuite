@@ -106,20 +106,32 @@ bool Shortcut()
 
 bool qInstall(const wchar_t* installerPath)
 {
-	SHELLEXECUTEINFOW sei = { sizeof(sei) };
-	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-	sei.lpFile = installerPath;
-	sei.lpParameters = L"/Q";
-	sei.nShow = SW_HIDE;
-	if (!ShellExecuteEx(&sei))
+	SHELLEXECUTEINFO q{
+		.cbSize = sizeof(q),
+		.fMask = SEE_MASK_NOCLOSEPROCESS,
+		.hwnd = nullptr,
+		.lpVerb = L"open",
+		.lpFile = installerPath,
+		.lpParameters = L"/Q",
+		.lpDirectory = nullptr,
+		.nShow = SW_HIDE
+	};
+
+	if (!ShellExecuteEx(&q))
 		return false;
-	if (sei.hProcess)
+
+	if (q.hProcess)
 	{
-		WaitForSingleObject(sei.hProcess, INFINITE);
-		CloseHandle(sei.hProcess);
+		WaitForSingleObject(q.hProcess, INFINITE);
+
+		DWORD exitCode = 0;
+		GetExitCodeProcess(q.hProcess, &exitCode);
+
+		CloseHandle(q.hProcess);
+		return exitCode == 0;
 	}
 
-	return true;
+	return false;
 }
 
 bool PKill(const std::wstring& processName)
@@ -210,22 +222,27 @@ static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true)
 	}
 }
 
-static void Run(const std::wstring& file, const std::wstring& params, bool wait) {
-	SHELLEXECUTEINFO sei{
-		.cbSize = sizeof(SHELLEXECUTEINFO),
-		.fMask = SEE_MASK_NOCLOSEPROCESS,
-		.lpVerb = L"open",
-		.lpFile = file.c_str(),
-		.lpParameters = params.c_str(),
-		.nShow = SW_SHOWNORMAL
-	};
-	ExecuteAndWait(sei, wait);
+static void Run(const std::wstring& file, const std::wstring& params, bool wait)
+{
+    SHELLEXECUTEINFO sei{};
+    sei.cbSize = sizeof(sei);
+    sei.fMask = wait ? SEE_MASK_NOCLOSEPROCESS : 0;
+    sei.hwnd = nullptr;
+    sei.lpVerb = L"open";
+    sei.lpFile = file.c_str();
+    sei.lpParameters = params.c_str();
+    sei.lpDirectory = nullptr;
+    sei.nShow = SW_SHOWNORMAL;
+    sei.hInstApp = nullptr;
+    ExecuteAndWait(sei, wait);
 }
+
+
 
 bool PShell(const std::vector<std::wstring>& commands)
 {
 	auto fileExistsInPath = [](const wchar_t* exe) {
-		wchar_t buf[MAX_PATH];
+		wchar_t buf[MAX_PATH+1];
 		return SearchPathW(nullptr, exe, nullptr, MAX_PATH, buf, nullptr) != 0;
 		};
 
@@ -1267,7 +1284,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
+int WINAPI wWinMain(
+	_In_ HINSTANCE hInstance,
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPWSTR lpCmdLine,
+	_In_ int nShowCmd)
 {
 	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
 
@@ -1323,7 +1344,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
 	patch = CreateWindowExW(
 		0, L"BUTTON", L"Install",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
-		xPatch, TOP, BW, CH,
+		xPatch, TOP, BW,  CH,
 		hWnd, HMENU(1), hInstance, nullptr
 	);
 
@@ -1357,7 +1378,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
 
 	SendMessageW(listbox, CB_SETCURSEL, 0, 0);
 
-	ShowWindow(hWnd, nCmdShow);
+	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
 	MSG msg;
