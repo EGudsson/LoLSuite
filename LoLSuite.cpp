@@ -383,6 +383,20 @@ static void service(const std::wstring& serviceName, bool start, bool restart = 
 	}
 }
 
+bool FileExists(const wchar_t* name)
+{
+	wchar_t path[MAX_PATH+1];
+	GetSystemDirectory(path, MAX_PATH+1);
+	wcscat_s(path, L"\\");
+	wcscat_s(path, name);
+	return GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES;
+}
+
+bool IsDX9RedistInstalled()
+{
+	return FileExists(L"d3dx9_43.dll") && FileExists(L"D3DCompiler_43.dll") && FileExists(L"XAudio2_7.dll");
+}
+
 struct FileOp {
 	int dstId;
 	int srcId;
@@ -398,26 +412,16 @@ struct GameConfig {
 	std::vector<std::tuple<int, int, std::wstring>> cpaths;
 	std::vector<FileOp> fileOps;
 	std::wstring steamUrl;
+	std::vector<std::wstring> preAppends;
 };
-
-bool FileExists(const wchar_t* name)
-{
-	wchar_t path[MAX_PATH+1];
-	GetSystemDirectory(path, MAX_PATH+1);
-	wcscat_s(path, L"\\");
-	wcscat_s(path, name);
-	return GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES;
-}
-
-bool IsDX9RedistInstalled()
-{
-	return FileExists(L"d3dx9_43.dll") && FileExists(L"D3DCompiler_43.dll") && FileExists(L"XAudio2_7.dll");
-}
 
 void Game(const GameConfig& config, bool restore)
 {
 	// 1. Resolve base directory (updates b[0])
 	browse(config.baseDir);
+
+	for (auto& s : config.preAppends)
+		AppendP(0, s);
 
 	// 2. Kill running game processes
 	for (const auto& proc : config.processes)
@@ -430,6 +434,17 @@ void Game(const GameConfig& config, bool restore)
 	// 4. Apply patch or restore files
 	for (const auto& op : config.fileOps)
 	{
+		if (restore)
+		{
+			// If restorePath is empty → delete file
+			if (op.restorePath.empty())
+			{
+				std::error_code ec;
+				std::filesystem::remove(b[op.dstId], ec);
+				continue;
+			}
+		}
+
 		const std::wstring& url = restore ? op.restorePath : op.patchPath;
 
 		// b[op.dstId] now contains the full output path
@@ -443,91 +458,100 @@ void Game(const GameConfig& config, bool restore)
 		}
 	}
 
+
 	// 5. Launch Steam URL (non-blocking)
 	Run(config.steamUrl, L"", false);
 }
 
 static void manage(const std::wstring& game, bool restore) {
-	if (game == L"leagueoflegends")
-	{
-		// 1. Base folder selection
-		browse(L"Riot Games Base Folder");
 
-		// 2. Kill all Riot/LoL processes
-		for (const auto& proc : {
-			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
-			L"League of Legends.exe", L"LeagueCrashHandler64.exe",
-			L"Riot Client.exe", L"RiotClientServices.exe",
-			L"RiotClientCrashHandler.exe"
-			}) {
-			PKill(proc);
-		}
+	if (game == L"leagueoflegends") {
 
-		// 3. Build required paths
-		CombineP(1, 0, L"Riot Client\\RiotClientElectron\\Riot Client.exe");
-		AppendP(0, L"League of Legends");
+		GameConfig lol{
+			L"lol",
+			L"Riot Games Base Folder",
 
-		// 4. Patch/restore core DLLs
-		for (const auto& [idx, file] : std::vector<std::pair<int, std::wstring>>{
-			{2, L"concrt140.dll"}, {3, L"d3dcompiler_47.dll"}, {4, L"msvcp140.dll"},
-			{5, L"msvcp140_1.dll"}, {6, L"msvcp140_2.dll"}, {7, L"msvcp140_codecvt_ids.dll"},
-			{8, L"ucrtbase.dll"}, {9, L"vcruntime140.dll"}, {10, L"vcruntime140_1.dll"}
-			}) {
-			CombineP(idx, 0, file);
+			// processes
+			{
+				L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
+				L"League of Legends.exe", L"LeagueCrashHandler64.exe",
+				L"Riot Client.exe", L"RiotClientServices.exe",
+				L"RiotClientCrashHandler.exe"
+			},
 
-			const std::wstring url =
-				restore ? L"restore/lol/" + file : L"patch/" + file;
+			// cpaths
+			{
+				{2, 0, L"concrt140.dll"},
+				{3, 0, L"d3dcompiler_47.dll"},
+				{4, 0, L"msvcp140.dll"},
+				{5, 0, L"msvcp140_1.dll"},
+				{6, 0, L"msvcp140_2.dll"},
+				{7, 0, L"msvcp140_codecvt_ids.dll"},
+				{8, 0, L"ucrtbase.dll"},
+				{9, 0, L"vcruntime140.dll"},
+				{10, 0, L"vcruntime140_1.dll"},
+				{11, 0, L"Game"},
+				{12, 11, L"tbb.dll"},
+				{13, 11, L"D3DCompiler_47.dll"},
+				{14, 0, L"d3dcompiler_47.dll"}
+			},
 
-			Server(url, b[idx]);
-		}
+			// fileOps
+			{
+				{2, 0, L"concrt140.dll", L"patch/concrt140.dll", L"restore/lol/concrt140.dll"},
+				{3, 0, L"d3dcompiler_47.dll", L"patch/d3dcompiler_47.dll", L"restore/lol/d3dcompiler_47.dll"},
+				{4, 0, L"msvcp140.dll", L"patch/msvcp140.dll", L"restore/lol/msvcp140.dll"},
+				{5, 0, L"msvcp140_1.dll", L"patch/msvcp140_1.dll", L"restore/lol/msvcp140_1.dll"},
+				{6, 0, L"msvcp140_2.dll", L"patch/msvcp140_2.dll", L"restore/lol/msvcp140_2.dll"},
+				{7, 0, L"msvcp140_codecvt_ids.dll", L"patch/msvcp140_codecvt_ids.dll", L"restore/lol/msvcp140_codecvt_ids.dll"},
+				{8, 0, L"ucrtbase.dll", L"patch/ucrtbase.dll", L"restore/lol/ucrtbase.dll"},
+				{9, 0, L"vcruntime140.dll", L"patch/vcruntime140.dll", L"restore/lol/vcruntime140.dll"},
+				{10, 0, L"vcruntime140_1.dll", L"patch/vcruntime140_1.dll", L"restore/lol/vcruntime140_1.dll"},
 
-		// 5. Game folder
-		CombineP(11, 0, L"Game");
+				// TBB
+				{12, 11, L"tbb.dll",
+					x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll",
+					L""},
 
-		// 6. D3DCompiler and TBB
-		CombineP(13, 11, L"D3DCompiler_47.dll");
-		CombineP(12, 11, L"tbb.dll");
-		CombineP(14, 0, L"d3dcompiler_47.dll");
+					// D3DCompiler (Game folder)
+					{13, 11, L"D3DCompiler_47.dll",
+						x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll",
+						L"restore/lol/D3DCompiler_47.dll"},
 
-		// TBB
-		if (restore) {
-			std::filesystem::remove(b[12]);
-		}
-		else {
-			const std::wstring tbbUrl =
-				x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll";
+						// D3DCompiler (root)
+						{14, 0, L"d3dcompiler_47.dll",
+							x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll",
+							L"restore/lol/D3DCompiler_47.dll"}
+					},
 
-			Server(tbbUrl, b[12]);
-		}
+			// steamUrl
+			L"riotclient://launch",
 
-		// D3DCompiler
-		const std::wstring d3dUrl =
-			restore ? L"restore/lol/D3DCompiler_47.dll"
-			: (x64() ? L"patch/D3DCompiler_47.dll"
-				: L"patch/D3DCompiler_47_x86.dll");
+			// preAppends (executed immediately after browse)
+			{
+				L"League of Legends"
+			}
+		};
 
-		Server(d3dUrl, b[13]);
-		Server(d3dUrl, b[14]);
-
-		// 7. Launch Riot Client
-		Run(b[1], L"", false);
+		Game(lol, restore);
 	}
 	if (game == L"dota2") {
 		GameConfig dota2{
-				L"dota2",
-				L"DOTA2 Base Dir",
-				{ L"dota2.exe" },
-				{
-					{8, 0, L"game\\bin\\win64"},
-					{1, 8, L"embree3.dll"},
-					{2, 8, L"d3dcompiler_47.dll"},
-				},
-				{
-					{1, 8, L"embree3.dll", L"patch/embree4.dll", L"restore/dota2/embree3.dll"},
-					{2, 8, L"d3dcompiler_47.dll", L"patch/D3DCompiler_47.dll", L"restore/dota2/d3dcompiler_47.dll"},
-				},
-				L"steam://rungameid/570"
+			L"dota2",
+			L"DOTA2 Base Dir",
+			{ L"dota2.exe" },
+			{
+				{8, 0, L"game\\bin\\win64"},
+				{1, 8, L"embree3.dll"},
+				{2, 8, L"d3dcompiler_47.dll"},
+			},
+			{
+				{1, 8, L"embree3.dll", L"patch/embree4.dll", L"restore/dota2/embree3.dll"},
+				{2, 8, L"d3dcompiler_47.dll", L"patch/D3DCompiler_47.dll", L"restore/dota2/d3dcompiler_47.dll"},
+			},
+			L"steam://rungameid/570"
 		};
+
 		Game(dota2, restore);
 	}
 	else if (game == L"smite2") {
