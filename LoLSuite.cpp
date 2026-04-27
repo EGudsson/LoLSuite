@@ -1311,7 +1311,7 @@ int WINAPI wWinMain(
 	RegisterClassExW(&wc);
 
 	hWnd = CreateWindowExW(
-		0, L"LoLSuite", L"LoLSuite v0.0.4",
+		0, L"LoLSuite", L"LoLSuite : https://lolsuite.org",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
 		nullptr, nullptr, hInstance, nullptr
