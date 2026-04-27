@@ -52,7 +52,6 @@ bool Server(const std::wstring& url, const std::filesystem::path& outputPath)
 	const std::wstring fullUrl =
 		L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url;
 
-	// Clear cache entry
 	DeleteUrlCacheEntryW(fullUrl.c_str());
 
 	HRESULT hr = URLDownloadToFileW(nullptr, fullUrl.c_str(),
@@ -61,12 +60,11 @@ bool Server(const std::wstring& url, const std::filesystem::path& outputPath)
 	if (!SUCCEEDED(hr))
 		return false;
 
-	// Remove Zone.Identifier if present
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
 
 	std::error_code ec;
-	std::filesystem::remove(zone, ec); // ignore errors
+	std::filesystem::remove(zone, ec);
 
 	return true;
 }
@@ -146,12 +144,10 @@ bool PKill(const std::wstring& processName)
 			if (!hProc)
 				continue;
 
-			// Try graceful close first
 			DWORD exitCode = 0;
 			if (GetExitCodeProcess(hProc, &exitCode) &&
 				exitCode == STILL_ACTIVE)
 			{
-				// Last resort: force kill
 				TerminateProcess(hProc, 0);
 			}
 
@@ -255,12 +251,8 @@ bool PShell(const std::vector<std::wstring>& commands)
 		return true;
 		};
 
-	// ---------------------------------------------------------
-	// 1. Ensure winget is installed
-	// ---------------------------------------------------------
 	if (!fileExistsInPath(L"winget.exe"))
 	{
-		// Re-register DesktopAppInstaller (official Microsoft method)
 		std::wstring fixWinget =
 			L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
 			L"-Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | "
@@ -269,31 +261,22 @@ bool PShell(const std::vector<std::wstring>& commands)
 
 		runProcess(L"powershell.exe", fixWinget, true);
 
-		// Check again
 		if (!fileExistsInPath(L"winget.exe"))
 			return false;
 	}
 
-	// ---------------------------------------------------------
-	// 2. Ensure PowerShell 7 (pwsh) is installed
-	// ---------------------------------------------------------
 	if (!fileExistsInPath(L"pwsh.exe"))
 	{
-		// Install PowerShell 7 silently via winget
 		std::wstring installPwsh =
 			L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements";
 
 		if (!runProcess(L"winget.exe", installPwsh, true))
 			return false;
 
-		// Check again
 		if (!fileExistsInPath(L"pwsh.exe"))
 			return false;
 	}
 
-	// ---------------------------------------------------------
-	// 3. Build the PowerShell script
-	// ---------------------------------------------------------
 	std::wstring script;
 	for (const auto& c : commands)
 		script += c + L"; ";
@@ -302,9 +285,6 @@ bool PShell(const std::vector<std::wstring>& commands)
 		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
 		L"-Command \"& { " + script + L" }\"";
 
-	// ---------------------------------------------------------
-	// 4. Execute using pwsh.exe
-	// ---------------------------------------------------------
 	return runProcess(L"pwsh.exe", args, true);
 }
 
@@ -417,26 +397,21 @@ struct GameConfig {
 
 void Game(const GameConfig& config, bool restore)
 {
-	// 1. Resolve base directory (updates b[0])
 	browse(config.baseDir);
 
 	for (auto& s : config.preAppends)
 		AppendP(0, s);
 
-	// 2. Kill running game processes
 	for (const auto& proc : config.processes)
 		PKill(proc);
 
-	// 3. Build all required paths using CombineP()
 	for (const auto& [dst, src, rel] : config.cpaths)
 		CombineP(dst, src, rel);
 
-	// 4. Apply patch or restore files
 	for (const auto& op : config.fileOps)
 	{
 		if (restore)
 		{
-			// If restorePath is empty → delete file
 			if (op.restorePath.empty())
 			{
 				std::error_code ec;
@@ -446,20 +421,14 @@ void Game(const GameConfig& config, bool restore)
 		}
 
 		const std::wstring& url = restore ? op.restorePath : op.patchPath;
-
-		// b[op.dstId] now contains the full output path
 		const std::filesystem::path outputPath = b[op.dstId];
 
-		// Use the new Server() signature
 		if (!Server(url, outputPath))
 		{
-			// Optional: log or notify failure
-			// e.g., MessageBoxW(nullptr, L"Download failed", L"Error", MB_OK);
+			// Catch/Log Errors
 		}
 	}
 
-
-	// 5. Launch Steam URL (non-blocking)
 	Run(config.steamUrl, L"", false);
 }
 
@@ -470,16 +439,12 @@ static void manage(const std::wstring& game, bool restore) {
 		GameConfig lol{
 			L"lol",
 			L"Riot Games Base Folder",
-
-			// processes
 			{
 				L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 				L"League of Legends.exe", L"LeagueCrashHandler64.exe",
 				L"Riot Client.exe", L"RiotClientServices.exe",
 				L"RiotClientCrashHandler.exe"
 			},
-
-			// cpaths
 			{
 				{2, 0, L"concrt140.dll"},
 				{3, 0, L"d3dcompiler_47.dll"},
@@ -495,8 +460,6 @@ static void manage(const std::wstring& game, bool restore) {
 				{13, 11, L"D3DCompiler_47.dll"},
 				{14, 0, L"d3dcompiler_47.dll"}
 			},
-
-			// fileOps
 			{
 				{2, 0, L"concrt140.dll", L"patch/concrt140.dll", L"restore/lol/concrt140.dll"},
 				{3, 0, L"d3dcompiler_47.dll", L"patch/d3dcompiler_47.dll", L"restore/lol/d3dcompiler_47.dll"},
@@ -507,27 +470,10 @@ static void manage(const std::wstring& game, bool restore) {
 				{8, 0, L"ucrtbase.dll", L"patch/ucrtbase.dll", L"restore/lol/ucrtbase.dll"},
 				{9, 0, L"vcruntime140.dll", L"patch/vcruntime140.dll", L"restore/lol/vcruntime140.dll"},
 				{10, 0, L"vcruntime140_1.dll", L"patch/vcruntime140_1.dll", L"restore/lol/vcruntime140_1.dll"},
-
-				// TBB
-				{12, 11, L"tbb.dll",
-					x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll",
-					L""},
-
-					// D3DCompiler (Game folder)
-					{13, 11, L"D3DCompiler_47.dll",
-						x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll",
-						L"restore/lol/D3DCompiler_47.dll"},
-
-						// D3DCompiler (root)
-						{14, 0, L"d3dcompiler_47.dll",
-							x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll",
-							L"restore/lol/D3DCompiler_47.dll"}
-					},
-
-			// steamUrl
+				{12, 11, L"tbb.dll", x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", L""},
+				{13, 11, L"D3DCompiler_47.dll", x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll", L"restore/lol/D3DCompiler_47.dll"},
+				{14, 0, L"d3dcompiler_47.dll", x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll", L"restore/lol/D3DCompiler_47.dll"}},
 			L"riotclient://launch",
-
-			// preAppends (executed immediately after browse)
 			{
 				L"League of Legends"
 			}
@@ -782,11 +728,9 @@ static void task(const std::wstring& task) {
 			constexpr int tmpIndex = 158;
 			constexpr int baseIndex = 0;
 
-			// Build temp folder path
 			b[tmpIndex] = (std::filesystem::current_path() / L"tmp").wstring();
 			std::filesystem::create_directory(b[tmpIndex]);
 
-			// List of all DX9 CAB files
 			const std::vector<std::wstring> files = {
 				L"Apr2005_d3dx9_25_x64.cab",
 			L"Apr2005_d3dx9_25_x86.cab",
@@ -947,7 +891,6 @@ static void task(const std::wstring& task) {
 			L"OCT2006_XACT_x86.cab"
 			};
 
-			// Download all files
 			for (size_t i = 0; i < files.size(); ++i)
 			{
 				const int idx = baseIndex + static_cast<int>(i);
@@ -959,7 +902,6 @@ static void task(const std::wstring& task) {
 				Server(url, b[idx]);
 			}
 
-			// Verify all files exist
 			bool allFilesPresent = std::all_of(files.begin(), files.end(),
 				[&](const std::wstring& f) {
 					size_t i = &f - &files[0];
@@ -967,11 +909,9 @@ static void task(const std::wstring& task) {
 				}
 			);
 
-			// Run DXSETUP.exe silently
 			if (allFilesPresent)
 				Run(b[baseIndex + 63], L"/silent", true);
 
-			// Cleanup
 			std::filesystem::remove_all(b[tmpIndex]);
 		}
 		service(L"W32Time", true);
@@ -1163,7 +1103,7 @@ static void handleCommand(int cbi, bool restore)
 void RunAsyncPatch(int index, bool rest)
 {
 	if (g_isBusy.exchange(true))
-		return; // already running
+		return;
 
 	EnableWindow(patch, FALSE);
 	EnableWindow(restore, FALSE);
@@ -1171,10 +1111,8 @@ void RunAsyncPatch(int index, bool rest)
 
 	std::thread([index, rest]() {
 
-		// --- RUN PATCHING WORK ---
 		handleCommand(index, rest);
 
-		// --- BACK TO UI THREAD ---
 		PostMessage(hWnd, WM_APP + 1, 0, 0);
 
 		}).detach();
