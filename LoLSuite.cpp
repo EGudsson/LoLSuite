@@ -45,7 +45,7 @@ static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) 
 }
 
 static void Server(const std::wstring& url, int idx) {
-	const std::wstring targetUrl = L"https://lolroms.com/buffer/" + url;
+	const std::wstring targetUrl = L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url;
 	const std::wstring& filePath = b[idx];
 	const std::wstring zonePath = filePath + L":Zone.Identifier";
 	DeleteUrlCacheEntry(targetUrl.c_str());
