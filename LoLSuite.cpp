@@ -65,32 +65,16 @@ bool isElevated()
 	return ok && elevation.TokenIsElevated;
 }
 
-
-bool r2(const std::wstring& url,
-	const std::filesystem::path& outputPath,
-	bool skipR2 = false)
+void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
-	// Build final URL depending on skipR2 flag
-	std::wstring fullUrl = skipR2
-		? url
-		: (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
-
-	// Clear cache entry
+	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
 	DeleteUrlCacheEntry(fullUrl.c_str());
-
-	// Download
-	if (FAILED(URLDownloadToFile(nullptr, fullUrl.c_str(), outputPath.c_str(), 0, nullptr)))
-		return false;
-
-	// Remove Zone.Identifier
+	URLDownloadToFile(nullptr, fullUrl.c_str(), outputPath.c_str(), 0, nullptr);
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
 	std::error_code ec;
 	std::filesystem::remove(zone, ec);
-
-	return true;
 }
-
 
 bool shortcut()
 {
@@ -129,7 +113,7 @@ bool pkill(const std::wstring& processName)
 
 	PROCESSENTRY32W entry{ sizeof(entry) };
 
-	if (!Process32FirstW(snapshot, &entry)) {
+	if (!Process32First(snapshot, &entry)) {
 		CloseHandle(snapshot);
 		return false;
 	}
@@ -234,7 +218,7 @@ bool shell(const std::vector<std::wstring>& commands)
 {
 	auto fileExistsInPath = [](const wchar_t* exe) {
 		wchar_t buf[MAX_PATH + 1];
-		return SearchPathW(nullptr, exe, nullptr, MAX_PATH + 1, buf, nullptr) != 0;
+		return SearchPath(nullptr, exe, nullptr, MAX_PATH + 1, buf, nullptr) != 0;
 		};
 
 	auto runProcess = [](const std::wstring& exe, const std::wstring& args, bool wait) {
@@ -243,6 +227,7 @@ bool shell(const std::vector<std::wstring>& commands)
 		PROCESS_INFORMATION pi{};
 
 		std::wstring cmd = exe + L" " + args;
+		cmd.push_back(L'\0');
 
 		if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr,
 			FALSE, CREATE_NO_WINDOW, nullptr, nullptr,
@@ -261,13 +246,14 @@ bool shell(const std::vector<std::wstring>& commands)
 
 	if (!fileExistsInPath(L"winget.exe"))
 	{
-		std::wstring fixWinget =
+		runProcess(
+			L"powershell.exe",
 			L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
 			L"-Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | "
 			L"Foreach { Add-AppxPackage -DisableDevelopmentMode -Register "
-			L"'$($_.InstallLocation)\\AppXManifest.xml' }\"";
-
-		runProcess(L"powershell.exe", fixWinget, true);
+			L"'$($_.InstallLocation)\\AppXManifest.xml' }\"",
+			true
+		);
 
 		if (!fileExistsInPath(L"winget.exe"))
 			return false;
@@ -275,10 +261,10 @@ bool shell(const std::vector<std::wstring>& commands)
 
 	if (!fileExistsInPath(L"pwsh.exe"))
 	{
-		std::wstring installPwsh =
-			L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements";
-
-		if (!runProcess(L"winget.exe", installPwsh, true))
+		if (!runProcess(
+			L"winget.exe",
+			L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements",
+			true))
 			return false;
 
 		if (!fileExistsInPath(L"pwsh.exe"))
@@ -289,11 +275,12 @@ bool shell(const std::vector<std::wstring>& commands)
 	for (const auto& c : commands)
 		script += c + L"; ";
 
-	std::wstring args =
+	return runProcess(
+		L"pwsh.exe",
 		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-		L"-Command \"& { " + script + L" }\"";
-
-	return runProcess(L"pwsh.exe", args, true);
+		L"-Command \"& { " + script + L" }\"",
+		true
+	);
 }
 
 std::wstring folder(const std::wstring& pathLabel) {
@@ -434,10 +421,7 @@ void Game(const GameConfig& config, bool restore)
 		const std::wstring& url = restore ? op.restorePath : op.patchPath;
 		const std::filesystem::path outputPath = b[op.dstId];
 
-		if (!r2(url, outputPath))
-		{
-			// Catch/Log Errors
-		}
+		r2(url, outputPath);
 	}
 
 	runEx(config.steamUrl, { .wait = false, .params = L"" });
@@ -1193,7 +1177,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		UINT dpi = HIWORD(wParam);
 		int px = -MulDiv(16, dpi, 96);
 
-		HFONT f = CreateFontW(px, 0, 0, 0, FW_BOLD,
+		HFONT f = CreateFont(px, 0, 0, 0, FW_BOLD,
 			FALSE, FALSE, FALSE,
 			DEFAULT_CHARSET,
 			OUT_DEFAULT_PRECIS,
@@ -1202,7 +1186,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			VARIABLE_PITCH | FF_SWISS,
 			font);
 
-		SendMessageW(hWnd, WM_SETFONT, (WPARAM)f, TRUE);
+		SendMessage(hWnd, WM_SETFONT, (WPARAM)f, TRUE);
 		return 0;
 	}
 
@@ -1242,7 +1226,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			SetBkMode(dis->hDC, TRANSPARENT);
 
 			wchar_t text[256];
-			GetWindowTextW(dis->hwndItem, text, 256);
+			GetWindowText(dis->hwndItem, text, 256);
 			DrawTextW(dis->hDC, text, -1, &dis->rcItem,
 				DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 			return TRUE;
@@ -1261,7 +1245,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		const UINT code = HIWORD(wParam);
 
 		if (code == CBN_SELCHANGE)
-			cb_index = (int)SendMessageW((HWND)lParam, CB_GETCURSEL, 0, 0);
+			cb_index = (int)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
 
 		if (id == 1 || id == 2) {
 			RunAsyncPatch(cb_index, id == 2);
@@ -1270,7 +1254,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 
 		if (id == IDM_EXIT) {
-			SendMessageW(hWnd, WM_CLOSE, 0, 0);
+			SendMessage(hWnd, WM_CLOSE, 0, 0);
 			return 0;
 		}
 	}
@@ -1285,7 +1269,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return 0;
 	}
 
-	return DefWindowProcW(hWnd, msg, wParam, lParam);
+	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
 
@@ -1307,23 +1291,24 @@ int WINAPI wWinMain(
 	const int comboTop = TOP + CH + 10;
 	const int comboWidth = W - BS * 2;
 
-	WNDCLASSEXW wc{
-		sizeof(wc),
-		CS_HREDRAW | CS_VREDRAW,
-		WndProc,
-		0, 0,
-		hInstance,
-		LoadIconW(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-		LoadCursorW(nullptr, IDC_ARROW),
-		(HBRUSH)NULL_BRUSH,
-		nullptr,
-		L"LoLSuite",
-		nullptr
+	WNDCLASSEXW wcx{
+	sizeof(WNDCLASSEXW),
+	CS_HREDRAW | CS_VREDRAW,
+	WndProc,
+	0, 0,
+	hInstance,
+	LoadIconW(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
+	LoadCursorW(nullptr, IDC_ARROW),
+	(HBRUSH)NULL_BRUSH,
+	nullptr,
+	L"LoLSuite",
+	nullptr
 	};
 
-	RegisterClassExW(&wc);
+	RegisterClassEx(&wcx);
 
-	hWnd = CreateWindowExW(
+
+	hWnd = CreateWindowEx(
 		0, L"LoLSuite", L"LoLSuite : https://lolsuite.org",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
@@ -1335,7 +1320,7 @@ int WINAPI wWinMain(
 	CoUninitialize();
 
 	int px = -MulDiv(16, GetDpiForWindow(hWnd), 96);
-	HFONT uiFont = CreateFontW(px, 0, 0, 0, FW_BOLD,
+	HFONT uiFont = CreateFont(px, 0, 0, 0, FW_BOLD,
 		FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET,
 		OUT_DEFAULT_PRECIS,
@@ -1344,15 +1329,14 @@ int WINAPI wWinMain(
 		VARIABLE_PITCH | FF_SWISS,
 		font);
 
-	SendMessageW(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
+	SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
 
-	patch = CreateWindowExW(0, L"BUTTON", L"Install", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
-	restore = CreateWindowExW(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
-	listbox = CreateWindowExW(0, WC_COMBOBOX, nullptr, CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL, comboLeft, comboTop, comboWidth, 210, hWnd, HMENU(3), hInstance, nullptr);
-	SendMessageW(patch, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	SendMessageW(restore, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	SendMessageW(listbox, WM_SETFONT, (WPARAM)uiFont, TRUE);
-
+	patch = CreateWindowEx(0, L"BUTTON", L"Install", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
+	restore = CreateWindowEx(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
+	listbox = CreateWindowEx(0, WC_COMBOBOX, nullptr, CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL, comboLeft, comboTop, comboWidth, 210, hWnd, HMENU(3), hInstance, nullptr);
+	SendMessage(patch, WM_SETFONT, (WPARAM)uiFont, TRUE);
+	SendMessage(restore, WM_SETFONT, (WPARAM)uiFont, TRUE);
+	SendMessage(listbox, WM_SETFONT, (WPARAM)uiFont, TRUE);
 	for (LPCWSTR s : {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
 			L"Metal Gear Solid Delta", L"Borderlands 4",
@@ -1360,18 +1344,16 @@ int WINAPI wWinMain(
 			L"SILENT HILL f", L"Outer Worlds 2",
 			L"MineCraft", L"Café Clients"
 	}) {
-		SendMessageW(listbox, CB_ADDSTRING, 0, (LPARAM)s);
+		SendMessage(listbox, CB_ADDSTRING, 0, (LPARAM)s);
 	}
-
-	SendMessageW(listbox, CB_SETCURSEL, 0, 0);
-
+	SendMessage(listbox, CB_SETCURSEL, 0, 0);
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
 	MSG msg;
-	while (GetMessageW(&msg, nullptr, 0, 0)) {
+	while (GetMessage(&msg, nullptr, 0, 0)) {
 		TranslateMessage(&msg);
-		DispatchMessageW(&msg);
+		DispatchMessage(&msg);
 	}
 
 	return (int)msg.wParam;
