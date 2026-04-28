@@ -85,7 +85,7 @@ bool shortcut()
     swprintf_s(shortcutPath, L"%s\\LoLSuite - FPS Booster.lnk", desktopPath);
     CoTaskMemFree(desktopPath);
     wchar_t exePath[MAX_PATH+1];
-    GetModuleFileName(nullptr, exePath, MAX_PATH);
+    GetModuleFileName(nullptr, exePath, MAX_PATH+1);
     IShellLinkW* link = nullptr;
     hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void**>(&link));
     if (FAILED(hr)) return false;
