@@ -219,7 +219,7 @@ bool shell(const std::vector<std::wstring>& commands)
 {
 	auto fileExistsInPath = [](const wchar_t* exe) {
 		wchar_t buf[MAX_PATH+1];
-		return SearchPathW(nullptr, exe, nullptr, MAX_PATH, buf, nullptr) != 0;
+		return SearchPathW(nullptr, exe, nullptr, MAX_PATH+1, buf, nullptr) != 0;
 		};
 
 	auto runProcess = [](const std::wstring& exe, const std::wstring& args, bool wait) {
@@ -284,7 +284,7 @@ bool shell(const std::vector<std::wstring>& commands)
 std::wstring folder(const std::wstring& pathLabel) {
 	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
 	wchar_t savedPath[MAX_PATH+1] = {};
-	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
+	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH+1, iniPath.c_str());
 	if (wcslen(savedPath) > 0) {
 		b[0] = savedPath;
 		return b[0];
