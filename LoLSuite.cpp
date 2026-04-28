@@ -1,4 +1,6 @@
-﻿#include <windows.h>
+﻿// Win11 FPS Booster
+
+#include <windows.h>
 #include <filesystem>
 #include <urlmon.h>
 #include <ShObjIdl_core.h>
@@ -13,26 +15,9 @@
 #include <shlobj.h>
 #include <dwmapi.h>
 #include <atomic>
+#include <unordered_map>
 
 static std::atomic<bool> g_isBusy = false;
-
-void EnableBackdrop(HWND hWnd, bool Mica)
-{
-	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
-	DwmSetWindowAttribute(hWnd,
-		DWMWA_WINDOW_CORNER_PREFERENCE,
-		&corner,
-		sizeof(corner));
-
-	DWM_SYSTEMBACKDROP_TYPE backdrop =
-		Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
-
-	DwmSetWindowAttribute(hWnd,
-		DWMWA_SYSTEMBACKDROP_TYPE,
-		&backdrop,
-		sizeof(backdrop));
-}
-
 const wchar_t* font = L"Segoe UI Variable";
 int cb_index = 0;
 std::vector<std::wstring> b(159);
@@ -65,6 +50,24 @@ bool isElevated()
 	return ok && elevation.TokenIsElevated;
 }
 
+void Theme(HWND hWnd, bool Mica)
+{
+	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+	DwmSetWindowAttribute(hWnd,
+		DWMWA_WINDOW_CORNER_PREFERENCE,
+		&corner,
+		sizeof(corner));
+
+	DWM_SYSTEMBACKDROP_TYPE backdrop =
+		Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
+
+	DwmSetWindowAttribute(hWnd,
+		DWMWA_SYSTEMBACKDROP_TYPE,
+		&backdrop,
+		sizeof(backdrop));
+}
+
+// Grab from cloudflare bucket
 void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
 	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
@@ -111,7 +114,7 @@ bool pkill(const std::wstring& processName)
 	if (snapshot == INVALID_HANDLE_VALUE)
 		return false;
 
-	PROCESSENTRY32W entry{ sizeof(entry) };
+	PROCESSENTRY32 entry{ sizeof(entry) };
 
 	if (!Process32First(snapshot, &entry)) {
 		CloseHandle(snapshot);
@@ -136,7 +139,7 @@ bool pkill(const std::wstring& processName)
 
 			CloseHandle(hProc);
 		}
-	} while (Process32NextW(snapshot, &entry));
+	} while (Process32Next(snapshot, &entry));
 
 	CloseHandle(snapshot);
 	return true;
@@ -229,7 +232,7 @@ bool shell(const std::vector<std::wstring>& commands)
 		std::wstring cmd = exe + L" " + args;
 		cmd.push_back(L'\0');
 
-		if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr,
+		if (!CreateProcess(nullptr, cmd.data(), nullptr, nullptr,
 			FALSE, CREATE_NO_WINDOW, nullptr, nullptr,
 			&si, &pi))
 		{
@@ -246,14 +249,7 @@ bool shell(const std::vector<std::wstring>& commands)
 
 	if (!fileExistsInPath(L"winget.exe"))
 	{
-		runProcess(
-			L"powershell.exe",
-			L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-			L"-Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | "
-			L"Foreach { Add-AppxPackage -DisableDevelopmentMode -Register "
-			L"'$($_.InstallLocation)\\AppXManifest.xml' }\"",
-			true
-		);
+		runProcess(L"powershell.exe", L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"", true);
 
 		if (!fileExistsInPath(L"winget.exe"))
 			return false;
@@ -261,26 +257,14 @@ bool shell(const std::vector<std::wstring>& commands)
 
 	if (!fileExistsInPath(L"pwsh.exe"))
 	{
-		if (!runProcess(
-			L"winget.exe",
-			L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements",
-			true))
-			return false;
-
-		if (!fileExistsInPath(L"pwsh.exe"))
-			return false;
+		runProcess(L"winget.exe", L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements", true);
 	}
 
 	std::wstring script;
 	for (const auto& c : commands)
 		script += c + L"; ";
 
-	return runProcess(
-		L"pwsh.exe",
-		L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-		L"-Command \"& { " + script + L" }\"",
-		true
-	);
+	return runProcess(L"pwsh.exe", (L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\""), true);
 }
 
 std::wstring folder(const std::wstring& pathLabel) {
@@ -428,225 +412,237 @@ void Game(const GameConfig& config, bool restore)
 
 }
 
+static GameConfig LeagueOfLegendsConfig() {
+	return {
+		L"lol",
+		L"Riot Games Base Folder",
+		{
+			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
+			L"League of Legends.exe", L"LeagueCrashHandler64.exe",
+			L"Riot Client.exe", L"RiotClientServices.exe",
+			L"RiotClientCrashHandler.exe"
+		},
+		{
+			{2,0,L"concrt140.dll"},
+			{3,0,L"d3dcompiler_47.dll"},
+			{4,0,L"msvcp140.dll"},
+			{5,0,L"msvcp140_1.dll"},
+			{6,0,L"msvcp140_2.dll"},
+			{7,0,L"msvcp140_codecvt_ids.dll"},
+			{8,0,L"ucrtbase.dll"},
+			{9,0,L"vcruntime140.dll"},
+			{10,0,L"vcruntime140_1.dll"},
+			{11,0,L"Game"},
+			{12,11,L"tbb.dll"},
+			{13,11,L"D3DCompiler_47.dll"},
+			{14,0,L"d3dcompiler_47.dll"}
+		},
+		{
+			{2,0,L"concrt140.dll",L"patch/concrt140.dll",L"restore/lol/concrt140.dll"},
+			{3,0,L"d3dcompiler_47.dll",L"patch/d3dcompiler_47.dll",L"restore/lol/d3dcompiler_47.dll"},
+			{4,0,L"msvcp140.dll",L"patch/msvcp140.dll",L"restore/lol/msvcp140.dll"},
+			{5,0,L"msvcp140_1.dll",L"patch/msvcp140_1.dll",L"restore/lol/msvcp140_1.dll"},
+			{6,0,L"msvcp140_2.dll",L"patch/msvcp140_2.dll",L"restore/lol/msvcp140_2.dll"},
+			{7,0,L"msvcp140_codecvt_ids.dll",L"patch/msvcp140_codecvt_ids.dll",L"restore/lol/msvcp140_codecvt_ids.dll"},
+			{8,0,L"ucrtbase.dll",L"patch/ucrtbase.dll",L"restore/lol/ucrtbase.dll"},
+			{9,0,L"vcruntime140.dll",L"patch/vcruntime140.dll",L"restore/lol/vcruntime140.dll"},
+			{10,0,L"vcruntime140_1.dll",L"patch/vcruntime140_1.dll",L"restore/lol/vcruntime140_1.dll"},
+			{12,11,L"tbb.dll", x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", L""},
+			{13,11,L"D3DCompiler_47.dll", x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll", L"restore/lol/D3DCompiler_47.dll"},
+			{14,0,L"d3dcompiler_47.dll", x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll", L"restore/lol/D3DCompiler_47.dll"}
+		},
+		L"riotclient://launch",
+		{ L"League of Legends" }
+	};
+}
+
+static GameConfig Dota2Config() {
+	return {
+		L"dota2",
+		L"DOTA2 Base Dir",
+		{ L"dota2.exe" },
+		{
+			{8, 0, L"game\\bin\\win64"},
+			{1, 8, L"embree3.dll"},
+			{2, 8, L"d3dcompiler_47.dll"},
+		},
+		{
+			{1, 8, L"embree3.dll", L"patch/embree4.dll", L"restore/dota2/embree3.dll"},
+			{2, 8, L"d3dcompiler_47.dll", L"patch/D3DCompiler_47.dll", L"restore/dota2/d3dcompiler_47.dll"},
+		},
+		L"steam://rungameid/570"
+	};
+}
+
+static GameConfig Smite2Config() {
+	return {
+		L"smite2",
+		L"SMITE2 Base Dir",
+		{ L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" },
+		{
+			{8, 0, L"Windows\\Engine\\Binaries\\Win64"},
+			{7, 0, L"Windows\\Hemingway\\Binaries\\Win64"},
+			{1, 8, L"tbb.dll"},
+			{2, 8, L"tbbmalloc.dll"},
+			{3, 7, L"tbb.dll"},
+			{4, 7, L"tbbmalloc.dll"}
+		},
+		{
+			{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/smite2/tbb.dll"},
+			{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/smite2/tbbmalloc.dll"},
+			{3, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/smite2/tbb.dll"},
+			{4, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/smite2/tbbmalloc.dll"}
+		},
+		L"steam://rungameid/2437170"
+	};
+}
+
+static GameConfig MgsConfig() {
+	return {
+		L"mgs",
+		L"METAL GEAR SOLID Delta Base Dir",
+		{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe", L"Foxhunt-Win64-Shipping.exe"},
+		{
+			{9, 0, L"MGSDelta_Foxhunt\\Binaries\\Win64"},
+			{8, 0, L"MGSDelta\\Binaries\\Win64"},
+			{7, 0, L"MGSDelta_Nightmare\\Binaries\\Win64"},
+			{1, 8, L"tbb.dll"},
+			{2, 8, L"tbb12.dll"},
+			{3, 8, L"tbbmalloc.dll"},
+			{4, 7, L"tbb.dll"},
+			{5, 7, L"tbb12.dll"},
+			{6, 7, L"tbbmalloc.dll"},
+			{10, 9, L"tbb.dll"},
+			{11, 9, L"tbb12.dll"},
+			{12, 9, L"tbbmalloc.dll"}
+		},
+		{
+			{10, 9, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
+			{11, 9, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
+			{12, 9, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
+			{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
+			{2, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
+			{3, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
+			{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
+			{5, 7, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
+			{6, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"}
+		},
+		L"steam://rungameid/2417610"
+	};
+}
+
+static GameConfig Blands4Config() {
+	return {
+		L"blands4",
+		L"Borderlands 4 Base Dir",
+		{ L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" },
+		{
+			{8, 0, L"OakGame\\Binaries\\Win64"},
+			{7, 0, L"Engine\\Binaries\\Win64"},
+			{1, 8, L"tbb.dll"},
+			{2, 8, L"tbbmalloc.dll"},
+			{3, 7, L"tbb.dll"},
+			{4, 7, L"tbbmalloc.dll"}
+		},
+		{
+			{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/blands4/tbb.dll"},
+			{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/blands4/tbbmalloc.dll"},
+			{3, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/blands4/tbb.dll"},
+			{4, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/blands4/tbbmalloc.dll"}
+		},
+		L"steam://rungameid/1285190"
+	};
+}
+
+static GameConfig OblivionRConfig() {
+	return {
+		L"oblivionr",
+		L"Oblivion Remastered Base Dir",
+		{ L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" },
+		{
+			{8, 0, L"OblivionRemastered\\Binaries\\Win64"},
+			{7, 0, L"Engine\\Binaries\\Win64"},
+			{1, 8, L"tbb.dll"},
+			{2, 8, L"tbbmalloc.dll"},
+			{3, 8, L"tbb12.dll"},
+			{4, 7, L"tbb.dll"},
+			{5, 7, L"tbbmalloc.dll"}
+		},
+		{
+			{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
+			{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
+			{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb12.dll"},
+			{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
+			{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
+		},
+		L"steam://rungameid/2623190"
+	};
+}
+
+static GameConfig SilentHillFConfig() {
+	return {
+		L"silenthillf",
+		L"SILENT HILL f Base Dir",
+		{ L"SHf-Win64-Shipping.exe", L"SHf.exe"},
+		{
+			{8, 0, L"SHf\\Binaries\\Win64"},
+			{7, 0, L"Engine\\Binaries\\Win64"},
+			{1, 8, L"tbb.dll"},
+			{2, 8, L"tbbmalloc.dll"},
+			{3, 8, L"tbb12.dll"},
+			{4, 7, L"tbb.dll"},
+			{5, 7, L"tbbmalloc.dll"}
+		},
+		{
+			{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb.dll"},
+			{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/silenthillf/tbbmalloc.dll"},
+			{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb12.dll"},
+			{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb.dll"},
+			{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/silenthillf/tbbmalloc.dll"},
+		},
+		L"steam://rungameid/2947440"
+	};
+}
+
+static GameConfig Outworlds2Config() {
+	return {
+		L"outworlds2",
+		L"The Outer Worlds 2 Base Dir",
+		{ L"TheOuterWorlds2-Win64-Shipping.exe", L"TheOuterWorlds2.exe"},
+		{
+			{8, 0, L"Arkansas\\Binaries\\Win64"},
+			{1, 8, L"tbb.dll"},
+			{2, 8, L"tbbmalloc.dll"},
+			{3, 8, L"tbb12.dll"}
+		},
+		{
+			{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/outworlds2/tbb.dll"},
+			{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/outworlds2/tbbmalloc.dll"},
+			{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/outworlds2/tbb12.dll"}
+		},
+		L"steam://rungameid/1449110"
+	};
+}
+
+static const std::unordered_map<std::wstring, GameConfig(*)()> gameMap = {
+	{ L"leagueoflegends", LeagueOfLegendsConfig },
+	{ L"dota2", Dota2Config },
+	{ L"smite2", Smite2Config },
+	{ L"mgs", MgsConfig },
+	{ L"blands4", Blands4Config },
+	{ L"oblivionr", OblivionRConfig },
+	{ L"silenthillf", SilentHillFConfig },
+	{ L"outworlds2", Outworlds2Config }
+};
+
 static void manage(const std::wstring& game, bool restore) {
 
-	if (game == L"leagueoflegends") {
+	auto it = gameMap.find(game);
+	if (it != gameMap.end()) {
+		Game(it->second(), restore);
+	}
 
-		GameConfig lol{
-			L"lol",
-			L"Riot Games Base Folder",
-			{
-				L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
-				L"League of Legends.exe", L"LeagueCrashHandler64.exe",
-				L"Riot Client.exe", L"RiotClientServices.exe",
-				L"RiotClientCrashHandler.exe"
-			},
-			{
-				{2, 0, L"concrt140.dll"},
-				{3, 0, L"d3dcompiler_47.dll"},
-				{4, 0, L"msvcp140.dll"},
-				{5, 0, L"msvcp140_1.dll"},
-				{6, 0, L"msvcp140_2.dll"},
-				{7, 0, L"msvcp140_codecvt_ids.dll"},
-				{8, 0, L"ucrtbase.dll"},
-				{9, 0, L"vcruntime140.dll"},
-				{10, 0, L"vcruntime140_1.dll"},
-				{11, 0, L"Game"},
-				{12, 11, L"tbb.dll"},
-				{13, 11, L"D3DCompiler_47.dll"},
-				{14, 0, L"d3dcompiler_47.dll"}
-			},
-			{
-				{2, 0, L"concrt140.dll", L"patch/concrt140.dll", L"restore/lol/concrt140.dll"},
-				{3, 0, L"d3dcompiler_47.dll", L"patch/d3dcompiler_47.dll", L"restore/lol/d3dcompiler_47.dll"},
-				{4, 0, L"msvcp140.dll", L"patch/msvcp140.dll", L"restore/lol/msvcp140.dll"},
-				{5, 0, L"msvcp140_1.dll", L"patch/msvcp140_1.dll", L"restore/lol/msvcp140_1.dll"},
-				{6, 0, L"msvcp140_2.dll", L"patch/msvcp140_2.dll", L"restore/lol/msvcp140_2.dll"},
-				{7, 0, L"msvcp140_codecvt_ids.dll", L"patch/msvcp140_codecvt_ids.dll", L"restore/lol/msvcp140_codecvt_ids.dll"},
-				{8, 0, L"ucrtbase.dll", L"patch/ucrtbase.dll", L"restore/lol/ucrtbase.dll"},
-				{9, 0, L"vcruntime140.dll", L"patch/vcruntime140.dll", L"restore/lol/vcruntime140.dll"},
-				{10, 0, L"vcruntime140_1.dll", L"patch/vcruntime140_1.dll", L"restore/lol/vcruntime140_1.dll"},
-				{12, 11, L"tbb.dll", x64() ? L"patch/tbb.dll" : L"patch/tbb_x86.dll", L""},
-				{13, 11, L"D3DCompiler_47.dll", x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll", L"restore/lol/D3DCompiler_47.dll"},
-				{14, 0, L"d3dcompiler_47.dll", x64() ? L"patch/D3DCompiler_47.dll" : L"patch/D3DCompiler_47_x86.dll", L"restore/lol/D3DCompiler_47.dll"}},
-			L"riotclient://launch",
-			{
-				L"League of Legends"
-			}
-		};
-
-		Game(lol, restore);
-	}
-	if (game == L"dota2") {
-		GameConfig dota2{
-			L"dota2",
-			L"DOTA2 Base Dir",
-			{ L"dota2.exe" },
-			{
-				{8, 0, L"game\\bin\\win64"},
-				{1, 8, L"embree3.dll"},
-				{2, 8, L"d3dcompiler_47.dll"},
-			},
-			{
-				{1, 8, L"embree3.dll", L"patch/embree4.dll", L"restore/dota2/embree3.dll"},
-				{2, 8, L"d3dcompiler_47.dll", L"patch/D3DCompiler_47.dll", L"restore/dota2/d3dcompiler_47.dll"},
-			},
-			L"steam://rungameid/570"
-		};
-
-		Game(dota2, restore);
-	}
-	else if (game == L"smite2") {
-		GameConfig smite2{
-			L"smite2",
-			L"SMITE2 Base Dir",
-			{ L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" },
-			{
-				{8, 0, L"Windows\\Engine\\Binaries\\Win64"},
-				{7, 0, L"Windows\\Hemingway\\Binaries\\Win64"},
-				{1, 8, L"tbb.dll"},
-				{2, 8, L"tbbmalloc.dll"},
-				{3, 7, L"tbb.dll"},
-				{4, 7, L"tbbmalloc.dll"}
-			},
-			{
-				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/smite2/tbb.dll"},
-				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/smite2/tbbmalloc.dll"},
-				{3, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/smite2/tbb.dll"},
-				{4, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/smite2/tbbmalloc.dll"}
-			},
-			L"steam://rungameid/2437170"
-		};
-		Game(smite2, restore);
-	}
-	else if (game == L"mgs") {
-		GameConfig mgs{
-			L"mgs",
-			L"METAL GEAR SOLID Delta Base Dir",
-			{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe", L"Foxhunt-Win64-Shipping.exe"},
-			{
-				{9, 0, L"MGSDelta_Foxhunt\\Binaries\\Win64"},
-				{8, 0, L"MGSDelta\\Binaries\\Win64"},
-				{7, 0, L"MGSDelta_Nightmare\\Binaries\\Win64"},
-				{1, 8, L"tbb.dll"},
-				{2, 8, L"tbb12.dll"},
-				{3, 8, L"tbbmalloc.dll"},
-				{4, 7, L"tbb.dll"},
-				{5, 7, L"tbb12.dll"},
-				{6, 7, L"tbbmalloc.dll"},
-				{10, 9, L"tbb.dll" },
-				{11, 9, L"tbb12.dll"},
-				{12, 9, L"tbbmalloc.dll"}
-			},
-			{
-				{10, 9, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
-				{11, 9, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
-				{12, 9, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
-				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
-				{2, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
-				{3, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"},
-				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/mgs/tbb.dll"},
-				{5, 7, L"tbb12.dll", L"patch/tbb.dll", L"restore/mgs/tbb12.dll"},
-				{6, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/mgs/tbbmalloc.dll"}
-			},
-			L"steam://rungameid/2417610"
-		};
-		Game(mgs, restore);
-	}
-	else if (game == L"blands4") {
-		GameConfig blands4{
-			L"blands4",
-			L"Borderlands 4 Base Dir",
-			{ L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" },
-			{
-				{8, 0, L"OakGame\\Binaries\\Win64"},
-				{7, 0, L"Engine\\Binaries\\Win64"},
-				{1, 8, L"tbb.dll"},
-				{2, 8, L"tbbmalloc.dll"},
-				{3, 7, L"tbb.dll"},
-				{4, 7, L"tbbmalloc.dll"}
-			},
-			{
-				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/blands4/tbb.dll"},
-				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/blands4/tbbmalloc.dll"},
-				{3, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/blands4/tbb.dll"},
-				{4, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/blands4/tbbmalloc.dll"}
-			},
-			L"steam://rungameid/1285190"
-		};
-		Game(blands4, restore);
-	}
-	else if (game == L"oblivionr") {
-		GameConfig oblivionr{
-			L"oblivionr",
-			L"Oblivion Remastered Base Dir",
-			{ L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" },
-			{
-				{8, 0, L"OblivionRemastered\\Binaries\\Win64"},
-				{7, 0, L"Engine\\Binaries\\Win64"},
-				{1, 8, L"tbb.dll"},
-				{2, 8, L"tbbmalloc.dll"},
-				{3, 8, L"tbb12.dll"},
-				{4, 7, L"tbb.dll"},
-				{5, 7, L"tbbmalloc.dll"}
-			},
-			{
-				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
-				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
-				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb12.dll"},
-				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/oblivionr/tbb.dll"},
-				{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/oblivionr/tbbmalloc.dll"},
-			},
-			L"steam://rungameid/2623190"
-		};
-		Game(oblivionr, restore);
-	}
-	else if (game == L"silenthillf") {
-		GameConfig silenthillf{
-			L"silenthillf",
-			L"SILENT HILL f Base Dir",
-			{ L"SHf-Win64-Shipping.exe", L"SHf.exe"},
-			{
-				{8, 0, L"SHf\\Binaries\\Win64"},
-				{7, 0, L"Engine\\Binaries\\Win64"},
-				{1, 8, L"tbb.dll"},
-				{2, 8, L"tbbmalloc.dll"},
-				{3, 8, L"tbb12.dll"},
-				{4, 7, L"tbb.dll"},
-				{5, 7, L"tbbmalloc.dll"}
-			},
-			{
-				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb.dll"},
-				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/silenthillf/tbbmalloc.dll"},
-				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb12.dll"},
-				{4, 7, L"tbb.dll", L"patch/tbb.dll", L"restore/silenthillf/tbb.dll"},
-				{5, 7, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/silenthillf/tbbmalloc.dll"},
-			},
-			L"steam://rungameid/2947440"
-		};
-		Game(silenthillf, restore);
-	}
-	else if (game == L"outworlds2") {
-		GameConfig outworlds2{
-			L"outworlds2",
-			L"The Outer Worlds 2 Base Dir",
-			{ L"TheOuterWorlds2-Win64-Shipping.exe", L"TheOuterWorlds2.exe"},
-			{
-				{8, 0, L"Arkansas\\Binaries\\Win64"},
-				{1, 8, L"tbb.dll"},
-				{2, 8, L"tbbmalloc.dll"},
-				{3, 8, L"tbb12.dll"}
-			},
-			{
-				{1, 8, L"tbb.dll", L"patch/tbb.dll", L"restore/outworlds2/tbb.dll"},
-				{2, 8, L"tbbmalloc.dll", L"patch/tbbmalloc.dll", L"restore/outworlds2/tbbmalloc.dll"},
-				{3, 8, L"tbb12.dll", L"patch/tbb.dll", L"restore/outworlds2/tbb12.dll"}
-			},
-			L"steam://rungameid/1449110"
-		};
-		Game(outworlds2, restore);
-	}
-	else if (game == L"minecraft")
+	if (game == L"minecraft")
 	{
 		if (!isElevated())
 		{
@@ -708,32 +704,49 @@ static void manage(const std::wstring& game, bool restore) {
 		}
 	}
 }
-static void task(const std::wstring& task) {
-	if (task == L"cafe") {
+void gamec() {
 		if (!isElevated())
 		{
 			MessageBox(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
 		else
 		{
+			if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
 			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
 			CreateDirectory(L"C:\\Temp", nullptr);
+			// Create temp directory inside current working directory
+			std::filesystem::path tempDir = std::filesystem::current_path() / "temp";
+			std::error_code ec;
+			std::filesystem::create_directories(tempDir, ec);
+
+			// Build file paths
+			std::filesystem::path file_x64 = tempDir / "vcredist_x64.exe";
+			std::filesystem::path file_x86 = tempDir / "vcredist_x86.exe";
+
 			if (x64())
 			{
-				const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
-				const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
-				r2(url_x64, file_x64, true);
-				runEx(file_x64, { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
-				std::error_code ec;
+				r2(
+					L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE",
+					file_x64.c_str(),
+					true
+				);
+
+				runEx(file_x64.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
+
 				std::filesystem::remove(file_x64, ec);
 			}
-			const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
-			const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
-			r2(url_x86, file_x86, true);
-			runEx(file_x86, { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
-			std::error_code ec;
+
+			r2(
+				L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE",
+				file_x86.c_str(),
+				true
+			);
+
+			runEx(file_x86.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
+
 			std::filesystem::remove(file_x86, ec);
+
 			if (!checkdx9())
 			{
 				constexpr int tmpIndex = 158;
@@ -1058,58 +1071,24 @@ static void task(const std::wstring& task) {
 		if (IsWindows10OrGreater())
 		{
 			HKEY hKey;
-			RegOpenKeyEx(
-				HKEY_CURRENT_USER,
-				L"Console\\%%Startup",
-				0,
-				KEY_SET_VALUE,
-				&hKey
-			);
-
+			RegOpenKeyEx(HKEY_CURRENT_USER, L"Console\\%%Startup", 0, KEY_SET_VALUE, &hKey);
 			const wchar_t* value = L"WindowsTerminal";
-			RegSetValueEx(
-				hKey,
-				L"DelegationConsole",
-				0,
-				REG_SZ,
-				reinterpret_cast<const BYTE*>(value),
-				(wcslen(value) + 1) * sizeof(wchar_t)
-			);
-			RegSetValueEx(
-				hKey,
-				L"DelegationTerminal",
-				0,
-				REG_SZ,
-				reinterpret_cast<const BYTE*>(value),
-				(wcslen(value) + 1) * sizeof(wchar_t)
-			);
+			RegSetValueEx(hKey, L"DelegationConsole", 0, REG_SZ, reinterpret_cast<const BYTE*>(value), (wcslen(value) + 1) * sizeof(wchar_t));
+			RegSetValueEx(hKey, L"DelegationTerminal", 0, REG_SZ, reinterpret_cast<const BYTE*>(value), (wcslen(value) + 1) * sizeof(wchar_t));
 			RegCloseKey(hKey);
 		}
 	}
 
-}
-
 static void handleCommand(int cbi, bool restore)
 {
-	static const std::vector<std::wstring> gameKeys = {
-		L"leagueoflegends",
-		L"dota2",
-		L"smite2",
-		L"mgs",
-		L"blands4",
-		L"oblivionr",
-		L"silenthillf",
-		L"outworlds2",
-		L"minecraft"
-	};
-
+	static const std::vector<std::wstring> gameKeys = {L"leagueoflegends", L"dota2", L"smite2", L"mgs", L"blands4", L"oblivionr", L"silenthillf", L"outworlds2", L"minecraft"};
 	if (cbi >= 0 && cbi < (int)gameKeys.size()) {
 		manage(gameKeys[cbi], restore);
 		return;
 	}
 
 	if (cbi == 9) {
-		task(L"cafe");
+		gamec();
 	}
 }
 
@@ -1229,7 +1208,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 			wchar_t text[256];
 			GetWindowText(dis->hwndItem, text, 256);
-			DrawTextW(dis->hDC, text, -1, &dis->rcItem,
+			DrawText(dis->hDC, text, -1, &dis->rcItem,
 				DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 			return TRUE;
 		}
@@ -1238,7 +1217,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 	case WM_SHOWWINDOW:
 		if (wParam && !lParam)
-			EnableBackdrop(hWnd, true);
+			Theme(hWnd, true);
 		break;
 
 	case WM_COMMAND:
@@ -1281,8 +1260,6 @@ int WINAPI wWinMain(
 	_In_ LPWSTR lpCmdLine,
 	_In_ int nShowCmd)
 {
-	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
-
 	constexpr int W = 420, H = 160;
 	constexpr int CH = 30, TOP = 20;
 	constexpr int BW = 63, BS = 15;
@@ -1299,8 +1276,8 @@ int WINAPI wWinMain(
 	WndProc,
 	0, 0,
 	hInstance,
-	LoadIconW(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-	LoadCursorW(nullptr, IDC_ARROW),
+	LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
+	LoadCursor(nullptr, IDC_ARROW),
 	(HBRUSH)NULL_BRUSH,
 	nullptr,
 	L"LoLSuite",
@@ -1308,7 +1285,6 @@ int WINAPI wWinMain(
 	};
 
 	RegisterClassEx(&wcx);
-
 
 	hWnd = CreateWindowEx(
 		0, L"LoLSuite", L"LoLSuite : https://lolsuite.org",
@@ -1322,30 +1298,15 @@ int WINAPI wWinMain(
 	CoUninitialize();
 
 	int px = -MulDiv(16, GetDpiForWindow(hWnd), 96);
-	HFONT uiFont = CreateFont(px, 0, 0, 0, FW_BOLD,
-		FALSE, FALSE, FALSE,
-		DEFAULT_CHARSET,
-		OUT_DEFAULT_PRECIS,
-		CLIP_DEFAULT_PRECIS,
-		CLEARTYPE_QUALITY,
-		VARIABLE_PITCH | FF_SWISS,
-		font);
-
+	HFONT uiFont = CreateFont(px, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, font);
 	SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
-
-	patch = CreateWindowEx(0, L"BUTTON", L"Install", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
-	restore = CreateWindowEx(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
+	patch = CreateWindowEx(0, L"BUTTON", L"Patch", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
+	restore = CreateWindowEx(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
 	listbox = CreateWindowEx(0, WC_COMBOBOX, nullptr, CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL, comboLeft, comboTop, comboWidth, 210, hWnd, HMENU(3), hInstance, nullptr);
 	SendMessage(patch, WM_SETFONT, (WPARAM)uiFont, TRUE);
 	SendMessage(restore, WM_SETFONT, (WPARAM)uiFont, TRUE);
 	SendMessage(listbox, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	for (LPCWSTR s : {
-		L"League of Legends", L"DOTA 2", L"SMITE 2",
-			L"Metal Gear Solid Delta", L"Borderlands 4",
-			L"The Elder Scrolls IV: Oblivion Remastered",
-			L"SILENT HILL f", L"Outer Worlds 2",
-			L"MineCraft", L"Café Clients"
-	}) {
+	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2",L"Metal Gear Solid Delta", L"Borderlands 4",L"The Elder Scrolls IV: Oblivion Remastered",L"SILENT HILL f", L"Outer Worlds 2",L"MineCraft", L"Café Clients"}) {
 		SendMessage(listbox, CB_ADDSTRING, 0, (LPARAM)s);
 	}
 	SendMessage(listbox, CB_SETCURSEL, 0, 0);
