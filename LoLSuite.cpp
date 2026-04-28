@@ -712,26 +712,28 @@ static void task(const std::wstring& task) {
 	if (task == L"cafe") {
 		if (!isElevated())
 		{
-			MessageBoxW(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
+			MessageBox(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
 		else
 		{
 			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
-			CreateDirectoryW(L"C:\\Temp", nullptr);
+			CreateDirectory(L"C:\\Temp", nullptr);
 			if (x64())
 			{
 				const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
 				const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
 				r2(url_x64, file_x64, true);
 				runEx(file_x64, { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
-				DeleteFile(file_x64);
+				std::error_code ec;
+				std::filesystem::remove(file_x64, ec);
 			}
 			const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
 			const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
 			r2(url_x86, file_x86, true);
 			runEx(file_x86, { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
-			DeleteFile(file_x86);
+			std::error_code ec;
+			std::filesystem::remove(file_x86, ec);
 			if (!checkdx9())
 			{
 				constexpr int tmpIndex = 158;
