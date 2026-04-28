@@ -1,20 +1,18 @@
 ﻿// Win11 FPS Booster
-
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <filesystem>
+#include <VersionHelpers.h>
 #include <winhttp.h>
-#include <ShObjIdl_core.h>
 #include <TlHelp32.h>
 #include <shellapi.h>
-#include <vector>
-#include <fstream>
-#include <thread>
-#include <VersionHelpers.h>
-#include "resource.h"
 #include <shlobj.h>
 #include <dwmapi.h>
+#include <filesystem>
 #include <atomic>
 #include <unordered_map>
+#include <fstream>
+#include <thread>
+#include "resource.h"
 
 static std::atomic<bool> g_isBusy = false;
 const wchar_t* font = L"Segoe UI Variable";
