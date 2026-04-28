@@ -6,7 +6,6 @@
 #include <ShObjIdl_core.h>
 #include <TlHelp32.h>
 #include <shellapi.h>
-#include <wininet.h>
 #include <vector>
 #include <fstream>
 #include <thread>
