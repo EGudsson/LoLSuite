@@ -16,21 +16,24 @@
 
 static std::atomic<bool> g_isBusy = false;
 
-inline void DwmSet(HWND hWnd, DWMWINDOWATTRIBUTE attr, auto&& value)
+void EnableBackdrop(HWND hWnd, bool Mica)
 {
-	DwmSetWindowAttribute(hWnd, attr, &value, sizeof(value));
-}
+		DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+		DwmSetWindowAttribute(hWnd,
+			DWMWA_WINDOW_CORNER_PREFERENCE,
+			&corner,
+			sizeof(corner));
 
-inline void EnableBackdrop(HWND hWnd, bool Mica)
-{
-	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
-	DwmSet(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, corner);
-	DWM_SYSTEMBACKDROP_TYPE backdrop = Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
-	DwmSet(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, backdrop);
+		DWM_SYSTEMBACKDROP_TYPE backdrop =
+			Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
+
+		DwmSetWindowAttribute(hWnd,
+			DWMWA_SYSTEMBACKDROP_TYPE,
+			&backdrop,
+			sizeof(backdrop));
 }
 
 const wchar_t* font = L"Segoe UI Variable";
-
 int cb_index = 0;
 std::vector<std::wstring> b(159);
 HWND hWnd, patch, restore, listbox;
@@ -47,30 +50,33 @@ static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) 
 	b[destIndex] = JoinP(b[srcIndex], addition);
 }
 
-bool Server(const std::wstring& url, const std::filesystem::path& outputPath)
+bool r2(const std::wstring& url,
+	const std::filesystem::path& outputPath,
+	bool skipR2 = false)
 {
-	const std::wstring fullUrl = L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url;
+	// Build final URL depending on skipR2 flag
+	std::wstring fullUrl = skipR2
+		? url
+		: (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
 
-	DeleteUrlCacheEntryW(fullUrl.c_str());
+	// Clear cache entry
+	DeleteUrlCacheEntry(fullUrl.c_str());
 
-	if (FAILED(URLDownloadToFileW(nullptr, fullUrl.c_str(), outputPath.c_str(), 0, nullptr)))
+	// Download
+	if (FAILED(URLDownloadToFile(nullptr, fullUrl.c_str(), outputPath.c_str(), 0, nullptr)))
 		return false;
 
+	// Remove Zone.Identifier
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
-
 	std::error_code ec;
 	std::filesystem::remove(zone, ec);
 
 	return true;
 }
 
-bool Download(const wchar_t* url, const wchar_t* outPath) {
-	HRESULT hr = URLDownloadToFile(nullptr, url, outPath, 0, nullptr);
-	return SUCCEEDED(hr);
-}
 
-bool Shortcut()
+bool shortcut()
 {
     PWSTR desktopPath = nullptr;
     HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktopPath);
@@ -99,37 +105,7 @@ bool Shortcut()
     return SUCCEEDED(hr);
 }
 
-bool qInstall(const wchar_t* installerPath)
-{
-	SHELLEXECUTEINFO q{
-		.cbSize = sizeof(q),
-		.fMask = SEE_MASK_NOCLOSEPROCESS,
-		.hwnd = nullptr,
-		.lpVerb = L"open",
-		.lpFile = installerPath,
-		.lpParameters = L"/Q",
-		.lpDirectory = nullptr,
-		.nShow = SW_HIDE
-	};
-
-	if (!ShellExecuteEx(&q))
-		return false;
-
-	if (q.hProcess)
-	{
-		WaitForSingleObject(q.hProcess, INFINITE);
-
-		DWORD exitCode = 0;
-		GetExitCodeProcess(q.hProcess, &exitCode);
-
-		CloseHandle(q.hProcess);
-		return exitCode == 0;
-	}
-
-	return false;
-}
-
-bool PKill(const std::wstring& processName)
+bool pkill(const std::wstring& processName)
 {
 	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (snapshot == INVALID_HANDLE_VALUE)
@@ -191,47 +167,55 @@ static bool x64()
 	return false;
 }
 
-static void ExecuteAndWait(SHELLEXECUTEINFO& sei, bool wait = true)
+struct RunOptions
 {
+	bool wait = true;          // Wait for process to finish
+	bool checkExit = false;         // Return success only if exit code == 0
+	bool hidden = false;         // Hide window (installer mode)
+	const wchar_t* verb = L"open";    // "open", "runas", etc.
+	const wchar_t* params = nullptr;  // Command-line parameters
+};
+
+bool runEx(const std::wstring& file, const RunOptions& opt)
+{
+	SHELLEXECUTEINFO sei{};
+	sei.cbSize = sizeof(sei);
+	sei.fMask = opt.wait ? SEE_MASK_NOCLOSEPROCESS : 0;
+	sei.hwnd = nullptr;
+	sei.lpVerb = opt.verb;
+	sei.lpFile = file.c_str();
+	sei.lpParameters = opt.params;
+	sei.lpDirectory = nullptr;
+	sei.nShow = opt.hidden ? SW_HIDE : SW_SHOWNORMAL;
+	sei.hInstApp = nullptr;
+
 	if (!ShellExecuteEx(&sei))
-	{
-		DWORD err = GetLastError();
-		return;
-	}
+		return false;
 
-	if (wait && sei.hProcess)
+	if (!opt.wait || !sei.hProcess)
+		return true;
+
+	// Wait for completion
+	SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
+
+	while (WaitForSingleObject(sei.hProcess, 50) == WAIT_TIMEOUT)
 	{
-		SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
-		while (WaitForSingleObject(sei.hProcess, 50) == WAIT_TIMEOUT)
+		MSG msg;
+		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
-			MSG msg;
-			while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-			{
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 		}
-		CloseHandle(sei.hProcess);
-		sei.hProcess = nullptr;
 	}
+
+	DWORD exitCode = 0;
+	GetExitCodeProcess(sei.hProcess, &exitCode);
+	CloseHandle(sei.hProcess);
+
+	return opt.checkExit ? (exitCode == 0) : true;
 }
 
-static void Run(const std::wstring& file, const std::wstring& params, bool wait)
-{
-    SHELLEXECUTEINFO sei{};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = wait ? SEE_MASK_NOCLOSEPROCESS : 0;
-    sei.hwnd = nullptr;
-    sei.lpVerb = L"open";
-    sei.lpFile = file.c_str();
-    sei.lpParameters = params.c_str();
-    sei.lpDirectory = nullptr;
-    sei.nShow = SW_SHOWNORMAL;
-    sei.hInstApp = nullptr;
-    ExecuteAndWait(sei, wait);
-}
-
-bool PShell(const std::vector<std::wstring>& commands)
+bool shell(const std::vector<std::wstring>& commands)
 {
 	auto fileExistsInPath = [](const wchar_t* exe) {
 		wchar_t buf[MAX_PATH+1];
@@ -297,7 +281,7 @@ bool PShell(const std::vector<std::wstring>& commands)
 	return runProcess(L"pwsh.exe", args, true);
 }
 
-std::wstring browse(const std::wstring& pathLabel) {
+std::wstring folder(const std::wstring& pathLabel) {
 	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
 	wchar_t savedPath[MAX_PATH+1] = {};
 	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH, iniPath.c_str());
@@ -372,18 +356,21 @@ static void service(const std::wstring& serviceName, bool start, bool restart = 
 	}
 }
 
-bool FileExists(const wchar_t* name)
+bool checkdx9()
 {
-	wchar_t path[MAX_PATH+1];
-	GetSystemDirectory(path, MAX_PATH+1);
-	wcscat_s(path, L"\\");
-	wcscat_s(path, name);
-	return GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES;
-}
+	wchar_t path[MAX_PATH + 1];
+	GetSystemDirectory(path, MAX_PATH + 1);
 
-bool IsDX9RedistInstalled()
-{
-	return FileExists(L"d3dx9_43.dll") && FileExists(L"D3DCompiler_43.dll") && FileExists(L"XAudio2_7.dll");
+	auto exists = [&](const wchar_t* name) -> bool
+		{
+			wchar_t full[MAX_PATH + 1];
+			wcscpy_s(full, path);
+			wcscat_s(full, L"\\");
+			wcscat_s(full, name);
+			return GetFileAttributes(full) != INVALID_FILE_ATTRIBUTES;
+		};
+
+	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
 }
 
 struct FileOp {
@@ -406,13 +393,13 @@ struct GameConfig {
 
 void Game(const GameConfig& config, bool restore)
 {
-	browse(config.baseDir);
+	folder(config.baseDir);
 
 	for (auto& s : config.preAppends)
 		AppendP(0, s);
 
 	for (const auto& proc : config.processes)
-		PKill(proc);
+		pkill(proc);
 
 	for (const auto& [dst, src, rel] : config.cpaths)
 		CombineP(dst, src, rel);
@@ -432,13 +419,14 @@ void Game(const GameConfig& config, bool restore)
 		const std::wstring& url = restore ? op.restorePath : op.patchPath;
 		const std::filesystem::path outputPath = b[op.dstId];
 
-		if (!Server(url, outputPath))
+		if (!r2(url, outputPath))
 		{
 			// Catch/Log Errors
 		}
 	}
 
-	Run(config.steamUrl, L"", false);
+	runEx(config.steamUrl, {.wait = false, .params = L""});
+
 }
 
 static void manage(const std::wstring& game, bool restore) {
@@ -661,7 +649,7 @@ static void manage(const std::wstring& game, bool restore) {
 	}
 	else if (game == L"minecraft")
 	{
-		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) PKill(proc);
+		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) pkill(proc);
 		char appdata[MAX_PATH + 1];
 		size_t size = 0;
 		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -676,8 +664,8 @@ static void manage(const std::wstring& game, bool restore) {
 		}
 		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
 		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
-		PShell(cmds);
-		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
+		shell(cmds);
+		runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", {.wait = false, .params = L""});
 		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		std::wifstream in(configPath);
 		in.imbue(std::locale("en_US.UTF-8"));
@@ -709,30 +697,30 @@ static void manage(const std::wstring& game, bool restore) {
 		out.close();
 		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"java.exe", L"javaw.exe", L"MinecraftServer.exe", L"Minecraft.Windows.exe" })
 		{
-			PKill(proc);
+			pkill(proc);
 		}
-		Run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", L"", false);
+		runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", {.wait = false, .params = L""});
 	}
 }
 static void task(const std::wstring& task) {
 	if (task == L"cafe") {
 		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) PKill(proc);
+		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
 		CreateDirectoryW(L"C:\\Temp", nullptr);
 		if (x64())
 		{
 			const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
 			const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
-			Download(url_x64, file_x64);
-			qInstall(file_x64);
+			r2(url_x64, file_x64, true);
+			runEx(file_x64, {.wait = true, .checkExit = true, .hidden = true, .params = L"/Q"});
 			DeleteFile(file_x64);
 		}
 		const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
 		const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
-		Download(url_x86, file_x86);
-		qInstall(file_x86);
+		r2(url_x86, file_x86, true);
+		runEx(file_x86, {.wait = true, .checkExit = true, .hidden = true, .params = L"/Q"});
 		DeleteFile(file_x86);
-		if (!IsDX9RedistInstalled())
+		if (!checkdx9())
 		{
 			constexpr int tmpIndex = 158;
 			constexpr int baseIndex = 0;
@@ -908,7 +896,7 @@ static void task(const std::wstring& task) {
 				CombineP(idx, tmpIndex, files[i]);
 
 				const std::wstring url = L"DXSETUP/" + files[i];
-				Server(url, b[idx]);
+				r2(url, b[idx]);
 			}
 
 			bool allFilesPresent = std::all_of(files.begin(), files.end(),
@@ -919,12 +907,12 @@ static void task(const std::wstring& task) {
 			);
 
 			if (allFilesPresent)
-				Run(b[baseIndex + 63], L"/silent", true);
+				runEx(b[baseIndex + 63], {.wait = true, .params = L"/silent"});
 
 			std::filesystem::remove_all(b[tmpIndex]);
 		}
 		service(L"W32Time", true);
-		PShell({
+		shell({
 			L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
 			L"wsreset -i",
 			L"w32tm /resync",
@@ -939,7 +927,7 @@ static void task(const std::wstring& task) {
 
 		if (IsWindows10OrGreater())
 		{
-			PShell({
+			shell({
 				L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
 				L"sc config tzautoupdate start= auto",
 				L"sc config W32Time start= auto",
@@ -978,8 +966,8 @@ static void task(const std::wstring& task) {
 				install.push_back(cmd);
 			}
 		}
-		PShell(uninstall);
-		PShell(install);
+		shell(uninstall);
+		shell(install);
 
 		WCHAR localAppData[MAX_PATH + 1];
 		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
@@ -1011,7 +999,7 @@ static void task(const std::wstring& task) {
 			FreeLibrary(dnsapi);
 		}
 		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
-			PKill(proc);
+			pkill(proc);
 		}
 		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
 		auto CacheClear = [](const std::filesystem::path& path) {
@@ -1127,45 +1115,6 @@ void RunAsyncPatch(int index, bool rest)
 		}).detach();
 }
 
-static void DrawButton(const LPDRAWITEMSTRUCT dis)
-{
-	const bool selected = (dis->itemState & ODS_SELECTED);
-	const bool hot = (dis->itemState & ODS_HOTLIGHT);
-
-	const COLORREF hoverOverlay = RGB(150, 190, 255);
-	const COLORREF pressOverlay = RGB(100, 150, 255);
-	const COLORREF borderColor = RGB(200, 220, 255);
-	const COLORREF fg = RGB(20, 40, 80);
-
-	if (selected || hot) {
-		COLORREF col = selected ? pressOverlay : hoverOverlay;
-		HBRUSH overlay = CreateSolidBrush(col);
-		FillRect(dis->hDC, &dis->rcItem, overlay);
-		DeleteObject(overlay);
-	}
-
-	HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
-	HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
-	HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
-
-	RoundRect(dis->hDC,
-		dis->rcItem.left, dis->rcItem.top,
-		dis->rcItem.right, dis->rcItem.bottom,
-		10, 10);
-
-	SelectObject(dis->hDC, oldBrush);
-	SelectObject(dis->hDC, oldPen);
-	DeleteObject(pen);
-
-	SetTextColor(dis->hDC, fg);
-	SetBkMode(dis->hDC, TRANSPARENT);
-
-	wchar_t text[256];
-	GetWindowTextW(dis->hwndItem, text, 256);
-	DrawTextW(dis->hDC, text, -1, &dis->rcItem,
-		DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-}
-
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	static HBRUSH transparentBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
@@ -1231,7 +1180,41 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		auto* dis = (LPDRAWITEMSTRUCT)lParam;
 		if (dis && dis->CtlType == ODT_BUTTON) {
-			DrawButton(dis);
+			const bool selected = (dis->itemState & ODS_SELECTED);
+			const bool hot = (dis->itemState & ODS_HOTLIGHT);
+
+			const COLORREF hoverOverlay = RGB(150, 190, 255);
+			const COLORREF pressOverlay = RGB(100, 150, 255);
+			const COLORREF borderColor = RGB(200, 220, 255);
+			const COLORREF fg = RGB(20, 40, 80);
+
+			if (selected || hot) {
+				COLORREF col = selected ? pressOverlay : hoverOverlay;
+				HBRUSH overlay = CreateSolidBrush(col);
+				FillRect(dis->hDC, &dis->rcItem, overlay);
+				DeleteObject(overlay);
+			}
+
+			HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
+			HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
+			HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
+
+			RoundRect(dis->hDC,
+				dis->rcItem.left, dis->rcItem.top,
+				dis->rcItem.right, dis->rcItem.bottom,
+				10, 10);
+
+			SelectObject(dis->hDC, oldBrush);
+			SelectObject(dis->hDC, oldPen);
+			DeleteObject(pen);
+
+			SetTextColor(dis->hDC, fg);
+			SetBkMode(dis->hDC, TRANSPARENT);
+
+			wchar_t text[256];
+			GetWindowTextW(dis->hwndItem, text, 256);
+			DrawTextW(dis->hDC, text, -1, &dis->rcItem,
+				DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 			return TRUE;
 		}
 		return FALSE;
@@ -1318,7 +1301,7 @@ int WINAPI wWinMain(
 	);
 
 	CoInitialize(nullptr);
-	Shortcut();
+	shortcut();
 	CoUninitialize();
 
 	int px = -MulDiv(16, GetDpiForWindow(hWnd), 96);
