@@ -18,19 +18,19 @@ static std::atomic<bool> g_isBusy = false;
 
 void EnableBackdrop(HWND hWnd, bool Mica)
 {
-		DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
-		DwmSetWindowAttribute(hWnd,
-			DWMWA_WINDOW_CORNER_PREFERENCE,
-			&corner,
-			sizeof(corner));
+	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+	DwmSetWindowAttribute(hWnd,
+		DWMWA_WINDOW_CORNER_PREFERENCE,
+		&corner,
+		sizeof(corner));
 
-		DWM_SYSTEMBACKDROP_TYPE backdrop =
-			Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
+	DWM_SYSTEMBACKDROP_TYPE backdrop =
+		Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
 
-		DwmSetWindowAttribute(hWnd,
-			DWMWA_SYSTEMBACKDROP_TYPE,
-			&backdrop,
-			sizeof(backdrop));
+	DwmSetWindowAttribute(hWnd,
+		DWMWA_SYSTEMBACKDROP_TYPE,
+		&backdrop,
+		sizeof(backdrop));
 }
 
 const wchar_t* font = L"Segoe UI Variable";
@@ -49,6 +49,22 @@ static void AppendP(int index, const std::wstring& addition) {
 static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = JoinP(b[srcIndex], addition);
 }
+
+bool isElevated()
+{
+	HANDLE token = nullptr;
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+		return false;
+
+	TOKEN_ELEVATION elevation{};
+	DWORD size = sizeof(elevation);
+
+	BOOL ok = GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &size);
+	CloseHandle(token);
+
+	return ok && elevation.TokenIsElevated;
+}
+
 
 bool r2(const std::wstring& url,
 	const std::filesystem::path& outputPath,
@@ -78,31 +94,31 @@ bool r2(const std::wstring& url,
 
 bool shortcut()
 {
-    PWSTR desktopPath = nullptr;
-    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktopPath);
-    if (FAILED(hr)) return false;
-    wchar_t shortcutPath[MAX_PATH+1];
-    swprintf_s(shortcutPath, L"%s\\LoLSuite - FPS Booster.lnk", desktopPath);
-    CoTaskMemFree(desktopPath);
-    wchar_t exePath[MAX_PATH+1];
-    GetModuleFileName(nullptr, exePath, MAX_PATH+1);
-    IShellLinkW* link = nullptr;
-    hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void**>(&link));
-    if (FAILED(hr)) return false;
-    link->SetPath(exePath);
-    link->SetArguments(L"");
-    link->SetDescription(L"FPS Booster");
-    link->SetIconLocation(exePath, 0);
-    IPersistFile* file = nullptr;
-    hr = link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&file));
-    if (FAILED(hr)) {
-        link->Release();
-        return false;
-    }
-    hr = file->Save(shortcutPath, TRUE);
-    file->Release();
-    link->Release();
-    return SUCCEEDED(hr);
+	PWSTR desktopPath = nullptr;
+	HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktopPath);
+	if (FAILED(hr)) return false;
+	wchar_t shortcutPath[MAX_PATH + 1];
+	swprintf_s(shortcutPath, L"%s\\LoLSuite - FPS Booster.lnk", desktopPath);
+	CoTaskMemFree(desktopPath);
+	wchar_t exePath[MAX_PATH + 1];
+	GetModuleFileName(nullptr, exePath, MAX_PATH + 1);
+	IShellLinkW* link = nullptr;
+	hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, reinterpret_cast<void**>(&link));
+	if (FAILED(hr)) return false;
+	link->SetPath(exePath);
+	link->SetArguments(L"");
+	link->SetDescription(L"FPS Booster");
+	link->SetIconLocation(exePath, 0);
+	IPersistFile* file = nullptr;
+	hr = link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&file));
+	if (FAILED(hr)) {
+		link->Release();
+		return false;
+	}
+	hr = file->Save(shortcutPath, TRUE);
+	file->Release();
+	link->Release();
+	return SUCCEEDED(hr);
 }
 
 bool pkill(const std::wstring& processName)
@@ -218,8 +234,8 @@ bool runEx(const std::wstring& file, const RunOptions& opt)
 bool shell(const std::vector<std::wstring>& commands)
 {
 	auto fileExistsInPath = [](const wchar_t* exe) {
-		wchar_t buf[MAX_PATH+1];
-		return SearchPathW(nullptr, exe, nullptr, MAX_PATH+1, buf, nullptr) != 0;
+		wchar_t buf[MAX_PATH + 1];
+		return SearchPathW(nullptr, exe, nullptr, MAX_PATH + 1, buf, nullptr) != 0;
 		};
 
 	auto runProcess = [](const std::wstring& exe, const std::wstring& args, bool wait) {
@@ -283,8 +299,8 @@ bool shell(const std::vector<std::wstring>& commands)
 
 std::wstring folder(const std::wstring& pathLabel) {
 	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
-	wchar_t savedPath[MAX_PATH+1] = {};
-	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH+1, iniPath.c_str());
+	wchar_t savedPath[MAX_PATH + 1] = {};
+	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH + 1, iniPath.c_str());
 	if (wcslen(savedPath) > 0) {
 		b[0] = savedPath;
 		return b[0];
@@ -425,7 +441,7 @@ void Game(const GameConfig& config, bool restore)
 		}
 	}
 
-	runEx(config.steamUrl, {.wait = false, .params = L""});
+	runEx(config.steamUrl, { .wait = false, .params = L"" });
 
 }
 
@@ -649,428 +665,443 @@ static void manage(const std::wstring& game, bool restore) {
 	}
 	else if (game == L"minecraft")
 	{
-		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) pkill(proc);
-		char appdata[MAX_PATH + 1];
-		size_t size = 0;
-		getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
-		std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
-		std::filesystem::remove_all(configPath);
-		configPath /= "launcher_profiles.json";
-		std::vector<std::wstring> cmds;
-		cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
-		for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
+		if (!isElevated())
 		{
-			cmds.push_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
+			MessageBoxW(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
-		cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
-		cmds.push_back(L"winget install Mojang.MinecraftLauncher");
-		shell(cmds);
-		runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", {.wait = false, .params = L""});
-		while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		std::wifstream in(configPath);
-		in.imbue(std::locale("en_US.UTF-8"));
-		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
-		in.close();
-		std::wstring updated;
-		std::wstringstream ss(config);
-		std::wstring line;
-		while (std::getline(ss, line)) {
-			if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
-				updated += line + L"\n";
-		}
-		std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25.0.3\\\\bin\\\\javaw.exe";
-		for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
-			size_t pos = updated.find(type);
-			if (pos != std::wstring::npos) {
-				size_t start = updated.rfind(L'\n', pos);
-				if (start != std::wstring::npos) updated.insert(start + 1, L"      \"skipJreVersionCheck\" : true,\n");
-				size_t javaDirPos = pos;
-				for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
-					javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
-				if (javaDirPos != std::wstring::npos)
-					updated.insert(javaDirPos + 1, L"      \"javaDir\" : \"" + jdkpath + L"\",\n");
+		else
+		{
+			for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) pkill(proc);
+			char appdata[MAX_PATH + 1];
+			size_t size = 0;
+			getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
+			std::filesystem::path configPath = std::filesystem::path(appdata) / ".minecraft";
+			std::filesystem::remove_all(configPath);
+			configPath /= "launcher_profiles.json";
+			std::vector<std::wstring> cmds;
+			cmds.push_back(L"winget uninstall Mojang.MinecraftLauncher --purge");
+			for (auto* v : { L"JavaRuntimeEnvironment", L"JDK.17", L"JDK.18", L"JDK.19", L"JDK.20", L"JDK.21", L"JDK.22", L"JDK.23", L"JDK.24", L"JDK.25" })
+			{
+				cmds.push_back(L"winget uninstall Oracle." + std::wstring(v) + L" --purge");
 			}
+			cmds.push_back(L"winget install Oracle.JDK.25 --accept-package-agreements");
+			cmds.push_back(L"winget install Mojang.MinecraftLauncher");
+			shell(cmds);
+			runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
+			while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			std::wifstream in(configPath);
+			in.imbue(std::locale("en_US.UTF-8"));
+			std::wstring config((std::istreambuf_iterator<wchar_t>(in)), std::istreambuf_iterator<wchar_t>());
+			in.close();
+			std::wstring updated;
+			std::wstringstream ss(config);
+			std::wstring line;
+			while (std::getline(ss, line)) {
+				if (line.find(L"\"javaDir\"") == std::wstring::npos && line.find(L"\"skipJreVersionCheck\"") == std::wstring::npos)
+					updated += line + L"\n";
+			}
+			std::wstring jdkpath = L"C:\\\\Program Files\\\\Java\\\\jdk-25.0.3\\\\bin\\\\javaw.exe";
+			for (auto& type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" }) {
+				size_t pos = updated.find(type);
+				if (pos != std::wstring::npos) {
+					size_t start = updated.rfind(L'\n', pos);
+					if (start != std::wstring::npos) updated.insert(start + 1, L"      \"skipJreVersionCheck\" : true,\n");
+					size_t javaDirPos = pos;
+					for (int i = 0; i < 4 && javaDirPos != std::wstring::npos; ++i)
+						javaDirPos = updated.rfind(L'\n', javaDirPos - 1);
+					if (javaDirPos != std::wstring::npos)
+						updated.insert(javaDirPos + 1, L"      \"javaDir\" : \"" + jdkpath + L"\",\n");
+				}
+			}
+			std::wofstream out(configPath);
+			out.imbue(std::locale("en_US.UTF-8"));
+			out << updated;
+			out.close();
+			for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"java.exe", L"javaw.exe", L"MinecraftServer.exe", L"Minecraft.Windows.exe" })
+			{
+				pkill(proc);
+			}
+			runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
 		}
-		std::wofstream out(configPath);
-		out.imbue(std::locale("en_US.UTF-8"));
-		out << updated;
-		out.close();
-		for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"java.exe", L"javaw.exe", L"MinecraftServer.exe", L"Minecraft.Windows.exe" })
-		{
-			pkill(proc);
-		}
-		runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", {.wait = false, .params = L""});
 	}
 }
 static void task(const std::wstring& task) {
 	if (task == L"cafe") {
-		SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-		for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
-		CreateDirectoryW(L"C:\\Temp", nullptr);
-		if (x64())
+		if (!isElevated())
 		{
-			const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
-			const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
-			r2(url_x64, file_x64, true);
-			runEx(file_x64, {.wait = true, .checkExit = true, .hidden = true, .params = L"/Q"});
-			DeleteFile(file_x64);
+			MessageBoxW(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
-		const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
-		const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
-		r2(url_x86, file_x86, true);
-		runEx(file_x86, {.wait = true, .checkExit = true, .hidden = true, .params = L"/Q"});
-		DeleteFile(file_x86);
-		if (!checkdx9())
+		else
 		{
-			constexpr int tmpIndex = 158;
-			constexpr int baseIndex = 0;
-
-			b[tmpIndex] = (std::filesystem::current_path() / L"tmp").wstring();
-			std::filesystem::create_directory(b[tmpIndex]);
-
-			const std::vector<std::wstring> files = {
-				L"Apr2005_d3dx9_25_x64.cab",
-			L"Apr2005_d3dx9_25_x86.cab",
-			L"Apr2006_d3dx9_30_x64.cab",
-			L"Apr2006_d3dx9_30_x86.cab",
-			L"Apr2006_MDX1_x86_Archive.cab",
-			L"Apr2006_MDX1_x86.cab",
-			L"Apr2006_XACT_x64.cab",
-			L"Apr2006_XACT_x86.cab",
-			L"Apr2006_xinput_x64.cab",
-			L"Apr2006_xinput_x86.cab",
-			L"APR2007_d3dx10_33_x64.cab",
-			L"APR2007_d3dx10_33_x86.cab",
-			L"APR2007_d3dx9_33_x64.cab",
-			L"APR2007_d3dx9_33_x86.cab",
-			L"APR2007_XACT_x64.cab",
-			L"APR2007_XACT_x86.cab",
-			L"APR2007_xinput_x64.cab",
-			L"APR2007_xinput_x86.cab",
-			L"Aug2005_d3dx9_27_x64.cab",
-			L"Aug2005_d3dx9_27_x86.cab",
-			L"AUG2006_XACT_x64.cab",
-			L"AUG2006_XACT_x86.cab",
-			L"AUG2006_xinput_x64.cab",
-			L"AUG2006_xinput_x86.cab",
-			L"AUG2007_d3dx10_35_x64.cab",
-			L"AUG2007_d3dx10_35_x86.cab",
-			L"AUG2007_d3dx9_35_x64.cab",
-			L"AUG2007_d3dx9_35_x86.cab",
-			L"AUG2007_XACT_x64.cab",
-			L"AUG2007_XACT_x86.cab",
-			L"Aug2008_d3dx10_39_x64.cab",
-			L"Aug2008_d3dx10_39_x86.cab",
-			L"Aug2008_d3dx9_39_x64.cab",
-			L"Aug2008_d3dx9_39_x86.cab",
-			L"Aug2008_XACT_x64.cab",
-			L"Aug2008_XACT_x86.cab",
-			L"Aug2008_XAudio_x64.cab",
-			L"Aug2008_XAudio_x86.cab",
-			L"Aug2009_D3DCompiler_42_x64.cab",
-			L"Aug2009_D3DCompiler_42_x86.cab",
-			L"Aug2009_d3dcsx_42_x64.cab",
-			L"Aug2009_d3dcsx_42_x86.cab",
-			L"Aug2009_d3dx10_42_x64.cab",
-			L"Aug2009_d3dx10_42_x86.cab",
-			L"Aug2009_d3dx11_42_x64.cab",
-			L"Aug2009_d3dx11_42_x86.cab",
-			L"Aug2009_d3dx9_42_x64.cab",
-			L"Aug2009_d3dx9_42_x86.cab",
-			L"Aug2009_XACT_x64.cab",
-			L"Aug2009_XACT_x86.cab",
-			L"Aug2009_XAudio_x64.cab",
-			L"Aug2009_XAudio_x86.cab",
-			L"Dec2005_d3dx9_28_x64.cab",
-			L"Dec2005_d3dx9_28_x86.cab",
-			L"DEC2006_d3dx10_00_x64.cab",
-			L"DEC2006_d3dx10_00_x86.cab",
-			L"DEC2006_d3dx9_32_x64.cab",
-			L"DEC2006_d3dx9_32_x86.cab",
-			L"DEC2006_XACT_x64.cab",
-			L"DEC2006_XACT_x86.cab",
-			L"DSETUP.dll",
-			L"dsetup32.dll",
-			L"dxdllreg_x86.cab",
-			L"DXSETUP.exe",
-			L"dxupdate.cab",
-			L"Feb2005_d3dx9_24_x64.cab",
-			L"Feb2005_d3dx9_24_x86.cab",
-			L"Feb2006_d3dx9_29_x64.cab",
-			L"Feb2006_d3dx9_29_x86.cab",
-			L"Feb2006_XACT_x64.cab",
-			L"Feb2006_XACT_x86.cab",
-			L"FEB2007_XACT_x64.cab",
-			L"FEB2007_XACT_x86.cab",
-			L"Feb2010_X3DAudio_x64.cab",
-			L"Feb2010_X3DAudio_x86.cab",
-			L"Feb2010_XACT_x64.cab",
-			L"Feb2010_XACT_x86.cab",
-			L"Feb2010_XAudio_x64.cab",
-			L"Feb2010_XAudio_x86.cab",
-			L"Jun2005_d3dx9_26_x64.cab",
-			L"Jun2005_d3dx9_26_x86.cab",
-			L"JUN2006_XACT_x64.cab",
-			L"JUN2006_XACT_x86.cab",
-			L"JUN2007_d3dx10_34_x64.cab",
-			L"JUN2007_d3dx10_34_x86.cab",
-			L"JUN2007_d3dx9_34_x64.cab",
-			L"JUN2007_d3dx9_34_x86.cab",
-			L"JUN2007_XACT_x64.cab",
-			L"JUN2007_XACT_x86.cab",
-			L"JUN2008_d3dx10_38_x64.cab",
-			L"JUN2008_d3dx10_38_x86.cab",
-			L"JUN2008_d3dx9_38_x64.cab",
-			L"JUN2008_d3dx9_38_x86.cab",
-			L"JUN2008_X3DAudio_x64.cab",
-			L"JUN2008_X3DAudio_x86.cab",
-			L"JUN2008_XACT_x64.cab",
-			L"JUN2008_XACT_x86.cab",
-			L"JUN2008_XAudio_x64.cab",
-			L"JUN2008_XAudio_x86.cab",
-			L"Jun2010_D3DCompiler_43_x64.cab",
-			L"Jun2010_D3DCompiler_43_x86.cab",
-			L"Jun2010_d3dcsx_43_x64.cab",
-			L"Jun2010_d3dcsx_43_x86.cab",
-			L"Jun2010_d3dx10_43_x64.cab",
-			L"Jun2010_d3dx10_43_x86.cab",
-			L"Jun2010_d3dx11_43_x64.cab",
-			L"Jun2010_d3dx11_43_x86.cab",
-			L"Jun2010_d3dx9_43_x64.cab",
-			L"Jun2010_d3dx9_43_x86.cab",
-			L"Jun2010_XACT_x64.cab",
-			L"Jun2010_XACT_x86.cab",
-			L"Jun2010_XAudio_x64.cab",
-			L"Jun2010_XAudio_x86.cab",
-			L"Mar2008_d3dx10_37_x64.cab",
-			L"Mar2008_d3dx10_37_x86.cab",
-			L"Mar2008_d3dx9_37_x64.cab",
-			L"Mar2008_d3dx9_37_x86.cab",
-			L"Mar2008_X3DAudio_x64.cab",
-			L"Mar2008_X3DAudio_x86.cab",
-			L"Mar2008_XACT_x64.cab",
-			L"Mar2008_XACT_x86.cab",
-			L"Mar2008_XAudio_x64.cab",
-			L"Mar2008_XAudio_x86.cab",
-			L"Mar2009_d3dx10_41_x64.cab",
-			L"Mar2009_d3dx10_41_x86.cab",
-			L"Mar2009_d3dx9_41_x64.cab",
-			L"Mar2009_d3dx9_41_x86.cab",
-			L"Mar2009_X3DAudio_x64.cab",
-			L"Mar2009_X3DAudio_x86.cab",
-			L"Mar2009_XACT_x64.cab",
-			L"Mar2009_XACT_x86.cab",
-			L"Mar2009_XAudio_x64.cab",
-			L"Mar2009_XAudio_x86.cab",
-			L"Nov2007_d3dx10_36_x64.cab",
-			L"Nov2007_d3dx10_36_x86.cab",
-			L"Nov2007_d3dx9_36_x64.cab",
-			L"Nov2007_d3dx9_36_x86.cab",
-			L"NOV2007_X3DAudio_x64.cab",
-			L"NOV2007_X3DAudio_x86.cab",
-			L"NOV2007_XACT_x64.cab",
-			L"NOV2007_XACT_x86.cab",
-			L"Nov2008_d3dx10_40_x64.cab",
-			L"Nov2008_d3dx10_40_x86.cab",
-			L"Nov2008_d3dx9_40_x64.cab",
-			L"Nov2008_d3dx9_40_x86.cab",
-			L"Nov2008_X3DAudio_x64.cab",
-			L"Nov2008_X3DAudio_x86.cab",
-			L"Nov2008_XACT_x64.cab",
-			L"Nov2008_XACT_x86.cab",
-			L"Nov2008_XAudio_x64.cab",
-			L"Nov2008_XAudio_x86.cab",
-			L"Oct2005_xinput_x64.cab",
-			L"Oct2005_xinput_x86.cab",
-			L"OCT2006_d3dx9_31_x64.cab",
-			L"OCT2006_d3dx9_31_x86.cab",
-			L"OCT2006_XACT_x64.cab",
-			L"OCT2006_XACT_x86.cab"
-			};
-
-			for (size_t i = 0; i < files.size(); ++i)
+			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
+			CreateDirectoryW(L"C:\\Temp", nullptr);
+			if (x64())
 			{
-				const int idx = baseIndex + static_cast<int>(i);
-
-				b[idx].clear();
-				CombineP(idx, tmpIndex, files[i]);
-
-				const std::wstring url = L"DXSETUP/" + files[i];
-				r2(url, b[idx]);
+				const wchar_t* url_x64 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE";
+				const wchar_t* file_x64 = L"C:\\Temp\\vcredist_x64.exe";
+				r2(url_x64, file_x64, true);
+				runEx(file_x64, { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
+				DeleteFile(file_x64);
 			}
+			const wchar_t* url_x86 = L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
+			const wchar_t* file_x86 = L"C:\\Temp\\vcredist_x86.exe";
+			r2(url_x86, file_x86, true);
+			runEx(file_x86, { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
+			DeleteFile(file_x86);
+			if (!checkdx9())
+			{
+				constexpr int tmpIndex = 158;
+				constexpr int baseIndex = 0;
 
-			bool allFilesPresent = std::all_of(files.begin(), files.end(),
-				[&](const std::wstring& f) {
-					size_t i = &f - &files[0];
-					return std::filesystem::exists(b[baseIndex + i]);
+				b[tmpIndex] = (std::filesystem::current_path() / L"tmp").wstring();
+				std::filesystem::create_directory(b[tmpIndex]);
+
+				const std::vector<std::wstring> files = {
+			    L"Apr2005_d3dx9_25_x64.cab",
+				L"Apr2005_d3dx9_25_x86.cab",
+				L"Apr2006_d3dx9_30_x64.cab",
+				L"Apr2006_d3dx9_30_x86.cab",
+				L"Apr2006_MDX1_x86_Archive.cab",
+				L"Apr2006_MDX1_x86.cab",
+				L"Apr2006_XACT_x64.cab",
+				L"Apr2006_XACT_x86.cab",
+				L"Apr2006_xinput_x64.cab",
+				L"Apr2006_xinput_x86.cab",
+				L"APR2007_d3dx10_33_x64.cab",
+				L"APR2007_d3dx10_33_x86.cab",
+				L"APR2007_d3dx9_33_x64.cab",
+				L"APR2007_d3dx9_33_x86.cab",
+				L"APR2007_XACT_x64.cab",
+				L"APR2007_XACT_x86.cab",
+				L"APR2007_xinput_x64.cab",
+				L"APR2007_xinput_x86.cab",
+				L"Aug2005_d3dx9_27_x64.cab",
+				L"Aug2005_d3dx9_27_x86.cab",
+				L"AUG2006_XACT_x64.cab",
+				L"AUG2006_XACT_x86.cab",
+				L"AUG2006_xinput_x64.cab",
+				L"AUG2006_xinput_x86.cab",
+				L"AUG2007_d3dx10_35_x64.cab",
+				L"AUG2007_d3dx10_35_x86.cab",
+				L"AUG2007_d3dx9_35_x64.cab",
+				L"AUG2007_d3dx9_35_x86.cab",
+				L"AUG2007_XACT_x64.cab",
+				L"AUG2007_XACT_x86.cab",
+				L"Aug2008_d3dx10_39_x64.cab",
+				L"Aug2008_d3dx10_39_x86.cab",
+				L"Aug2008_d3dx9_39_x64.cab",
+				L"Aug2008_d3dx9_39_x86.cab",
+				L"Aug2008_XACT_x64.cab",
+				L"Aug2008_XACT_x86.cab",
+				L"Aug2008_XAudio_x64.cab",
+				L"Aug2008_XAudio_x86.cab",
+				L"Aug2009_D3DCompiler_42_x64.cab",
+				L"Aug2009_D3DCompiler_42_x86.cab",
+				L"Aug2009_d3dcsx_42_x64.cab",
+				L"Aug2009_d3dcsx_42_x86.cab",
+				L"Aug2009_d3dx10_42_x64.cab",
+				L"Aug2009_d3dx10_42_x86.cab",
+				L"Aug2009_d3dx11_42_x64.cab",
+				L"Aug2009_d3dx11_42_x86.cab",
+				L"Aug2009_d3dx9_42_x64.cab",
+				L"Aug2009_d3dx9_42_x86.cab",
+				L"Aug2009_XACT_x64.cab",
+				L"Aug2009_XACT_x86.cab",
+				L"Aug2009_XAudio_x64.cab",
+				L"Aug2009_XAudio_x86.cab",
+				L"Dec2005_d3dx9_28_x64.cab",
+				L"Dec2005_d3dx9_28_x86.cab",
+				L"DEC2006_d3dx10_00_x64.cab",
+				L"DEC2006_d3dx10_00_x86.cab",
+				L"DEC2006_d3dx9_32_x64.cab",
+				L"DEC2006_d3dx9_32_x86.cab",
+				L"DEC2006_XACT_x64.cab",
+				L"DEC2006_XACT_x86.cab",
+				L"DSETUP.dll",
+				L"dsetup32.dll",
+				L"dxdllreg_x86.cab",
+				L"DXSETUP.exe",
+				L"dxupdate.cab",
+				L"Feb2005_d3dx9_24_x64.cab",
+				L"Feb2005_d3dx9_24_x86.cab",
+				L"Feb2006_d3dx9_29_x64.cab",
+				L"Feb2006_d3dx9_29_x86.cab",
+				L"Feb2006_XACT_x64.cab",
+				L"Feb2006_XACT_x86.cab",
+				L"FEB2007_XACT_x64.cab",
+				L"FEB2007_XACT_x86.cab",
+				L"Feb2010_X3DAudio_x64.cab",
+				L"Feb2010_X3DAudio_x86.cab",
+				L"Feb2010_XACT_x64.cab",
+				L"Feb2010_XACT_x86.cab",
+				L"Feb2010_XAudio_x64.cab",
+				L"Feb2010_XAudio_x86.cab",
+				L"Jun2005_d3dx9_26_x64.cab",
+				L"Jun2005_d3dx9_26_x86.cab",
+				L"JUN2006_XACT_x64.cab",
+				L"JUN2006_XACT_x86.cab",
+				L"JUN2007_d3dx10_34_x64.cab",
+				L"JUN2007_d3dx10_34_x86.cab",
+				L"JUN2007_d3dx9_34_x64.cab",
+				L"JUN2007_d3dx9_34_x86.cab",
+				L"JUN2007_XACT_x64.cab",
+				L"JUN2007_XACT_x86.cab",
+				L"JUN2008_d3dx10_38_x64.cab",
+				L"JUN2008_d3dx10_38_x86.cab",
+				L"JUN2008_d3dx9_38_x64.cab",
+				L"JUN2008_d3dx9_38_x86.cab",
+				L"JUN2008_X3DAudio_x64.cab",
+				L"JUN2008_X3DAudio_x86.cab",
+				L"JUN2008_XACT_x64.cab",
+				L"JUN2008_XACT_x86.cab",
+				L"JUN2008_XAudio_x64.cab",
+				L"JUN2008_XAudio_x86.cab",
+				L"Jun2010_D3DCompiler_43_x64.cab",
+				L"Jun2010_D3DCompiler_43_x86.cab",
+				L"Jun2010_d3dcsx_43_x64.cab",
+				L"Jun2010_d3dcsx_43_x86.cab",
+				L"Jun2010_d3dx10_43_x64.cab",
+				L"Jun2010_d3dx10_43_x86.cab",
+				L"Jun2010_d3dx11_43_x64.cab",
+				L"Jun2010_d3dx11_43_x86.cab",
+				L"Jun2010_d3dx9_43_x64.cab",
+				L"Jun2010_d3dx9_43_x86.cab",
+				L"Jun2010_XACT_x64.cab",
+				L"Jun2010_XACT_x86.cab",
+				L"Jun2010_XAudio_x64.cab",
+				L"Jun2010_XAudio_x86.cab",
+				L"Mar2008_d3dx10_37_x64.cab",
+				L"Mar2008_d3dx10_37_x86.cab",
+				L"Mar2008_d3dx9_37_x64.cab",
+				L"Mar2008_d3dx9_37_x86.cab",
+				L"Mar2008_X3DAudio_x64.cab",
+				L"Mar2008_X3DAudio_x86.cab",
+				L"Mar2008_XACT_x64.cab",
+				L"Mar2008_XACT_x86.cab",
+				L"Mar2008_XAudio_x64.cab",
+				L"Mar2008_XAudio_x86.cab",
+				L"Mar2009_d3dx10_41_x64.cab",
+				L"Mar2009_d3dx10_41_x86.cab",
+				L"Mar2009_d3dx9_41_x64.cab",
+				L"Mar2009_d3dx9_41_x86.cab",
+				L"Mar2009_X3DAudio_x64.cab",
+				L"Mar2009_X3DAudio_x86.cab",
+				L"Mar2009_XACT_x64.cab",
+				L"Mar2009_XACT_x86.cab",
+				L"Mar2009_XAudio_x64.cab",
+				L"Mar2009_XAudio_x86.cab",
+				L"Nov2007_d3dx10_36_x64.cab",
+				L"Nov2007_d3dx10_36_x86.cab",
+				L"Nov2007_d3dx9_36_x64.cab",
+				L"Nov2007_d3dx9_36_x86.cab",
+				L"NOV2007_X3DAudio_x64.cab",
+				L"NOV2007_X3DAudio_x86.cab",
+				L"NOV2007_XACT_x64.cab",
+				L"NOV2007_XACT_x86.cab",
+				L"Nov2008_d3dx10_40_x64.cab",
+				L"Nov2008_d3dx10_40_x86.cab",
+				L"Nov2008_d3dx9_40_x64.cab",
+				L"Nov2008_d3dx9_40_x86.cab",
+				L"Nov2008_X3DAudio_x64.cab",
+				L"Nov2008_X3DAudio_x86.cab",
+				L"Nov2008_XACT_x64.cab",
+				L"Nov2008_XACT_x86.cab",
+				L"Nov2008_XAudio_x64.cab",
+				L"Nov2008_XAudio_x86.cab",
+				L"Oct2005_xinput_x64.cab",
+				L"Oct2005_xinput_x86.cab",
+				L"OCT2006_d3dx9_31_x64.cab",
+				L"OCT2006_d3dx9_31_x86.cab",
+				L"OCT2006_XACT_x64.cab",
+				L"OCT2006_XACT_x86.cab"
+				};
+
+				for (size_t i = 0; i < files.size(); ++i)
+				{
+					const int idx = baseIndex + static_cast<int>(i);
+
+					b[idx].clear();
+					CombineP(idx, tmpIndex, files[i]);
+
+					const std::wstring url = L"DXSETUP/" + files[i];
+					r2(url, b[idx]);
 				}
-			);
 
-			if (allFilesPresent)
-				runEx(b[baseIndex + 63], {.wait = true, .params = L"/silent"});
+				bool allFilesPresent = std::all_of(files.begin(), files.end(),
+					[&](const std::wstring& f) {
+						size_t i = &f - &files[0];
+						return std::filesystem::exists(b[baseIndex + i]);
+					}
+				);
 
-			std::filesystem::remove_all(b[tmpIndex]);
-		}
-		service(L"W32Time", true);
-		shell({
-			L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
-			L"wsreset -i",
-			L"w32tm /resync",
-			L"netsh int ip reset",
-			L"netsh winsock reset",
-			L"netsh winhttp reset proxy",
-			L"powercfg -restoredefaultschemes",
-			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
-			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-			L"winget source update"
-			});
+				if (allFilesPresent)
+					runEx(b[baseIndex + 63], { .wait = true, .params = L"/silent" });
 
-		if (IsWindows10OrGreater())
-		{
+				std::filesystem::remove_all(b[tmpIndex]);
+			}
+			service(L"W32Time", true);
 			shell({
-				L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
-				L"sc config tzautoupdate start= auto",
-				L"sc config W32Time start= auto",
-				L"DISM /Online /Cleanup-Image /RestoreHealth"
+				L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
+				L"wsreset -i",
+				L"w32tm /resync",
+				L"netsh int ip reset",
+				L"netsh winsock reset",
+				L"netsh winhttp reset proxy",
+				L"powercfg -restoredefaultschemes",
+				L"Add-WindowsCapability -Online -Name NetFx3~~~~",
+				L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
+				L"winget source update"
 				});
-		}
-		service(L"tzautoupdate", true);
-		std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
-		for (auto& s : services) service(s, false);
-		WCHAR winDir[MAX_PATH + 1];
-		if (GetWindowsDirectory(winDir, MAX_PATH + 1) > 0) {
-			std::filesystem::remove_all(std::filesystem::path(winDir) / L"SoftwareDistribution");
-		}
-		for (auto& s : services)
-			service(s, true);
-		std::vector<std::wstring> apps = {L"Microsoft.OpenCLGLVulkanCompatibilityPack",
-		    L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
-			L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.PowerShell",L"Microsoft.WindowsTerminal", L"9MZPRTH5C0TB", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
-			L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.EdgeWebView2Runtime"
-		};
-		std::vector<std::wstring> filteredApps;
-		for (const auto& app : apps) {
-			if (!x64() &&
-				app.find(L"Microsoft.VCRedist.") != std::wstring::npos &&
-				app.find(L".x64") != std::wstring::npos) {
-				continue;
-			}
-			filteredApps.push_back(app);
-		}
-		std::vector<std::wstring> uninstall, install;
-		for (auto& app : filteredApps) {
-			uninstall.push_back(L"winget uninstall " + app + L" --purge");
-			if (app != L"ElectronicArts.Origin") {
-				std::wstring cmd = L"winget install " + app + L" --accept-package-agreements --accept-source-agreements";
-				if (app == L"Blizzard.BattleNet") cmd += L" --location \"C:\\Battle.Net\"";
-				install.push_back(cmd);
-			}
-		}
-		shell(uninstall);
-		shell(install);
 
-		WCHAR localAppData[MAX_PATH + 1];
-		if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
-			std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
-			constexpr const wchar_t* patterns[] = {
-				L"thumbcache_*.db",
-				L"iconcache_*.db",
-				L"ExplorerStartupLog*.etl"
+			if (IsWindows10OrGreater())
+			{
+				shell({
+					L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
+					L"sc config tzautoupdate start= auto",
+					L"sc config W32Time start= auto",
+					L"DISM /Online /Cleanup-Image /RestoreHealth"
+					});
+			}
+			service(L"tzautoupdate", true);
+			std::vector<std::wstring> services = { L"wuauserv", L"BITS", L"CryptSvc" };
+			for (auto& s : services) service(s, false);
+			WCHAR winDir[MAX_PATH + 1];
+			if (GetWindowsDirectory(winDir, MAX_PATH + 1) > 0) {
+				std::filesystem::remove_all(std::filesystem::path(winDir) / L"SoftwareDistribution");
+			}
+			for (auto& s : services)
+				service(s, true);
+			std::vector<std::wstring> apps = { L"Microsoft.OpenCLGLVulkanCompatibilityPack",
+				L"Microsoft.VCRedist.2008.x64", L"Microsoft.VCRedist.2008.x86", L"Microsoft.VCRedist.2010.x64", L"Microsoft.VCRedist.2010.x86", L"Microsoft.VCRedist.2012.x64",
+				L"Microsoft.VCRedist.2012.x86", L"Microsoft.VCRedist.2013.x64", L"Microsoft.VCRedist.2013.x86", L"Microsoft.PowerShell",L"Microsoft.WindowsTerminal", L"9MZPRTH5C0TB", L"9N4D0MSMP0PT", L"9N5TDP8VCMHS", L"9N95Q1ZZPMH4", L"9NCTDW2W1BH8", L"9PB0TRCNRHFX", L"9PCSD6N03BKV", L"9PG2DK419DRG", L"9PMMSR1CGPWG", L"Blizzard.BattleNet", L"ElectronicArts.EADesktop",
+				L"ElectronicArts.Origin", L"EpicGames.EpicGamesLauncher", L"Valve.Steam", L"Microsoft.EdgeWebView2Runtime"
 			};
-			for (auto pattern : patterns) {
-				WIN32_FIND_DATA data;
-				HANDLE hFind = FindFirstFile((explorerPath / pattern).c_str(), &data);
-
-				if (hFind != INVALID_HANDLE_VALUE) {
-					do {
-						std::filesystem::remove(explorerPath / data.cFileName);
-					} while (FindNextFile(hFind, &data));
-
-					FindClose(hFind);
+			std::vector<std::wstring> filteredApps;
+			for (const auto& app : apps) {
+				if (!x64() &&
+					app.find(L"Microsoft.VCRedist.") != std::wstring::npos &&
+					app.find(L".x64") != std::wstring::npos) {
+					continue;
+				}
+				filteredApps.push_back(app);
+			}
+			std::vector<std::wstring> uninstall, install;
+			for (auto& app : filteredApps) {
+				uninstall.push_back(L"winget uninstall " + app + L" --purge");
+				if (app != L"ElectronicArts.Origin") {
+					std::wstring cmd = L"winget install " + app + L" --accept-package-agreements --accept-source-agreements";
+					if (app == L"Blizzard.BattleNet") cmd += L" --location \"C:\\Battle.Net\"";
+					install.push_back(cmd);
 				}
 			}
-		}
-		if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
-			using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
-			if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
-				GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
-				DnsFlush();
-			}
-			FreeLibrary(dnsapi);
-		}
-		for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
-			pkill(proc);
-		}
-		ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
-		auto CacheClear = [](const std::filesystem::path& path) {
-			if (std::filesystem::exists(path)) {
-				std::filesystem::remove_all(path);
-			}
-			};
-		auto getFolder = [](int csidl) -> std::optional<std::filesystem::path> {
-			wchar_t buf[MAX_PATH + 1]{};
-			return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, buf))
-				? std::optional<std::filesystem::path>(buf)
-				: std::nullopt;
-			};
+			shell(uninstall);
+			shell(install);
 
-		if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
-			const std::vector<std::wstring> Chromium = {
-				L"Microsoft/Edge", L"Microsoft/Edge Beta", L"Microsoft/Edge Dev", L"Microsoft/Edge SxS",
-				L"Google/Chrome", L"Google/Chrome Beta", L"Google/Chrome Dev", L"Google/Chrome SxS"
-			};
-			const std::vector<std::wstring> Caches = {
-				L"Cache", L"Code Cache", L"GPUCache", L"ShaderCache"
-			};
-			for (const auto& vendor : Chromium) {
-				for (const auto& cache : Caches) {
-					CacheClear(*local / vendor / L"User Data/Default" / cache);
-				}
-			}
-			const std::filesystem::path profiles = *local / L"Mozilla/Firefox/Profiles";
-			if (std::filesystem::exists(profiles)) {
-				for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
-					if (entry.is_directory()) {
-						CacheClear(entry.path() / L"cache2");
+			WCHAR localAppData[MAX_PATH + 1];
+			if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
+				std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
+				constexpr const wchar_t* patterns[] = {
+					L"thumbcache_*.db",
+					L"iconcache_*.db",
+					L"ExplorerStartupLog*.etl"
+				};
+				for (auto pattern : patterns) {
+					WIN32_FIND_DATA data;
+					HANDLE hFind = FindFirstFile((explorerPath / pattern).c_str(), &data);
+
+					if (hFind != INVALID_HANDLE_VALUE) {
+						do {
+							std::filesystem::remove(explorerPath / data.cFileName);
+						} while (FindNextFile(hFind, &data));
+
+						FindClose(hFind);
 					}
 				}
 			}
-			const std::vector<std::wstring> opera = { L"Opera Software/Opera Stable", L"Opera Software/Opera GX Stable", L"Opera Software/Opera Air Stable", L"Opera Software/Opera Next" };
-			for (const auto& browser : opera) {
-				CacheClear(*local / browser / L"Default/Cache");
+			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
+				using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
+				if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
+					GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
+					DnsFlush();
+				}
+				FreeLibrary(dnsapi);
+			}
+			for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
+				pkill(proc);
+			}
+			ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
+			auto CacheClear = [](const std::filesystem::path& path) {
+				if (std::filesystem::exists(path)) {
+					std::filesystem::remove_all(path);
+				}
+				};
+			auto getFolder = [](int csidl) -> std::optional<std::filesystem::path> {
+				wchar_t buf[MAX_PATH + 1]{};
+				return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, buf))
+					? std::optional<std::filesystem::path>(buf)
+					: std::nullopt;
+				};
+
+			if (auto local = getFolder(CSIDL_LOCAL_APPDATA)) {
+				const std::vector<std::wstring> Chromium = {
+					L"Microsoft/Edge", L"Microsoft/Edge Beta", L"Microsoft/Edge Dev", L"Microsoft/Edge SxS",
+					L"Google/Chrome", L"Google/Chrome Beta", L"Google/Chrome Dev", L"Google/Chrome SxS"
+				};
+				const std::vector<std::wstring> Caches = {
+					L"Cache", L"Code Cache", L"GPUCache", L"ShaderCache"
+				};
+				for (const auto& vendor : Chromium) {
+					for (const auto& cache : Caches) {
+						CacheClear(*local / vendor / L"User Data/Default" / cache);
+					}
+				}
+				const std::filesystem::path profiles = *local / L"Mozilla/Firefox/Profiles";
+				if (std::filesystem::exists(profiles)) {
+					for (const auto& entry : std::filesystem::directory_iterator(profiles)) {
+						if (entry.is_directory()) {
+							CacheClear(entry.path() / L"cache2");
+						}
+					}
+				}
+				const std::vector<std::wstring> opera = { L"Opera Software/Opera Stable", L"Opera Software/Opera GX Stable", L"Opera Software/Opera Air Stable", L"Opera Software/Opera Next" };
+				for (const auto& browser : opera) {
+					CacheClear(*local / browser / L"Default/Cache");
+				}
 			}
 		}
-	}
-	if (IsWindows10OrGreater())
-	{
-		HKEY hKey;
-		RegOpenKeyEx(
-			HKEY_CURRENT_USER,
-			L"Console\\%%Startup",
-			0,
-			KEY_SET_VALUE,
-			&hKey
-		);
+		if (IsWindows10OrGreater())
+		{
+			HKEY hKey;
+			RegOpenKeyEx(
+				HKEY_CURRENT_USER,
+				L"Console\\%%Startup",
+				0,
+				KEY_SET_VALUE,
+				&hKey
+			);
 
-		const wchar_t* value = L"WindowsTerminal";
-		RegSetValueEx(
-			hKey,
-			L"DelegationConsole",
-			0,
-			REG_SZ,
-			reinterpret_cast<const BYTE*>(value),
-			(wcslen(value) + 1) * sizeof(wchar_t)
-		);
-		RegSetValueEx(
-			hKey,
-			L"DelegationTerminal",
-			0,
-			REG_SZ,
-			reinterpret_cast<const BYTE*>(value),
-			(wcslen(value) + 1) * sizeof(wchar_t)
-		);
-		RegCloseKey(hKey);
+			const wchar_t* value = L"WindowsTerminal";
+			RegSetValueEx(
+				hKey,
+				L"DelegationConsole",
+				0,
+				REG_SZ,
+				reinterpret_cast<const BYTE*>(value),
+				(wcslen(value) + 1) * sizeof(wchar_t)
+			);
+			RegSetValueEx(
+				hKey,
+				L"DelegationTerminal",
+				0,
+				REG_SZ,
+				reinterpret_cast<const BYTE*>(value),
+				(wcslen(value) + 1) * sizeof(wchar_t)
+			);
+			RegCloseKey(hKey);
+		}
 	}
+
 }
 
 static void handleCommand(int cbi, bool restore)
@@ -1328,7 +1359,7 @@ int WINAPI wWinMain(
 			L"Metal Gear Solid Delta", L"Borderlands 4",
 			L"The Elder Scrolls IV: Oblivion Remastered",
 			L"SILENT HILL f", L"Outer Worlds 2",
-			L"MineCraft", L"Café Clients (Admin)"
+			L"MineCraft", L"Café Clients"
 	}) {
 		SendMessageW(listbox, CB_ADDSTRING, 0, (LPARAM)s);
 	}
