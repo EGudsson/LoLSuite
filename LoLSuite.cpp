@@ -185,11 +185,11 @@ static bool x64()
 
 struct RunOptions
 {
-	bool wait = true;          // Wait for process to finish
-	bool checkExit = false;         // Return success only if exit code == 0
-	bool hidden = false;         // Hide window (installer mode)
-	const wchar_t* verb = L"open";    // "open", "runas", etc.
-	const wchar_t* params = nullptr;  // Command-line parameters
+	bool wait = true;
+	bool checkExit = false;
+	bool hidden = false;
+	const wchar_t* verb = L"open";
+	const wchar_t* params = nullptr;
 };
 
 bool runEx(const std::wstring& file, const RunOptions& opt)
@@ -211,7 +211,6 @@ bool runEx(const std::wstring& file, const RunOptions& opt)
 	if (!opt.wait || !sei.hProcess)
 		return true;
 
-	// Wait for completion
 	SetPriorityClass(sei.hProcess, HIGH_PRIORITY_CLASS);
 
 	while (WaitForSingleObject(sei.hProcess, 50) == WAIT_TIMEOUT)
