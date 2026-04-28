@@ -2,7 +2,7 @@
 
 #include <windows.h>
 #include <filesystem>
-#include <urlmon.h>
+#include <winhttp.h>
 #include <ShObjIdl_core.h>
 #include <TlHelp32.h>
 #include <shellapi.h>
@@ -67,12 +67,95 @@ void Theme(HWND hWnd, bool Mica)
 		sizeof(backdrop));
 }
 
-// Grab from cloudflare bucket
+bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
+{
+	URL_COMPONENTS uc{};
+	wchar_t host[256]{};
+	wchar_t path[2048]{};
+
+	uc.dwStructSize = sizeof(uc);
+	uc.lpszHostName = host;
+	uc.dwHostNameLength = _countof(host);
+	uc.lpszUrlPath = path;
+	uc.dwUrlPathLength = _countof(path);
+
+	if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc))
+		return false;
+
+	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0",
+		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+		WINHTTP_NO_PROXY_NAME,
+		WINHTTP_NO_PROXY_BYPASS, 0);
+
+	if (!hSession)
+		return false;
+
+	HINTERNET hConnect = WinHttpConnect(hSession, host, uc.nPort, 0);
+	if (!hConnect) {
+		WinHttpCloseHandle(hSession);
+		return false;
+	}
+
+	DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS)
+		? WINHTTP_FLAG_SECURE
+		: 0;
+
+	HINTERNET hRequest = WinHttpOpenRequest(
+		hConnect,
+		L"GET",
+		path,
+		nullptr,
+		WINHTTP_NO_REFERER,
+		WINHTTP_DEFAULT_ACCEPT_TYPES,
+		flags);
+
+	if (!hRequest) {
+		WinHttpCloseHandle(hConnect);
+		WinHttpCloseHandle(hSession);
+		return false;
+	}
+
+	BOOL sent = WinHttpSendRequest(hRequest,
+		WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+		nullptr, 0, 0, 0);
+
+	if (!sent || !WinHttpReceiveResponse(hRequest, nullptr)) {
+		WinHttpCloseHandle(hRequest);
+		WinHttpCloseHandle(hConnect);
+		WinHttpCloseHandle(hSession);
+		return false;
+	}
+
+	std::ofstream out(outputPath, std::ios::binary);
+	if (!out.is_open()) {
+		WinHttpCloseHandle(hRequest);
+		WinHttpCloseHandle(hConnect);
+		WinHttpCloseHandle(hSession);
+		return false;
+	}
+
+	DWORD bytes = 0;
+	BYTE buffer[8192];
+
+	while (WinHttpReadData(hRequest, buffer, sizeof(buffer), &bytes) && bytes > 0)
+		out.write(reinterpret_cast<char*>(buffer), bytes);
+
+	out.close();
+
+	WinHttpCloseHandle(hRequest);
+	WinHttpCloseHandle(hConnect);
+	WinHttpCloseHandle(hSession);
+
+	return true;
+}
+
 void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
 	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
-	DeleteUrlCacheEntry(fullUrl.c_str());
-	URLDownloadToFile(nullptr, fullUrl.c_str(), outputPath.c_str(), 0, nullptr);
+
+	downloadWinHTTP(fullUrl, outputPath);
+
+	// Local Remove Zone.Identifier
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
 	std::error_code ec;
@@ -145,30 +228,30 @@ bool pkill(const std::wstring& processName)
 	return true;
 }
 
-static bool x64()
+bool x64()
 {
 	USHORT processMachine = 0, nativeMachine = 0;
-	auto k32 = GetModuleHandle(L"kernel32.dll");
-	if (!k32) return false;
-	using Fn2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
-	auto fn2 = reinterpret_cast<Fn2>(GetProcAddress(k32, "IsWow64Process2"));
 
-	if (fn2) {
-		if (fn2(GetCurrentProcess(), &processMachine, &nativeMachine)) {
-			return nativeMachine == IMAGE_FILE_MACHINE_AMD64 ||
-				nativeMachine == IMAGE_FILE_MACHINE_ARM64;
-		}
-	}
-	using Fn = BOOL(WINAPI*)(HANDLE, PBOOL);
-	auto fn = reinterpret_cast<Fn>(GetProcAddress(k32, "IsWow64Process"));
-	if (fn) {
-		BOOL wow = FALSE;
-		if (fn(GetCurrentProcess(), &wow))
-			return wow;
-	}
+	auto fn = reinterpret_cast<BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*)>(
+		GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2")
+		);
+
+	if (fn && fn(GetCurrentProcess(), &processMachine, &nativeMachine))
+		return nativeMachine == IMAGE_FILE_MACHINE_AMD64 ||
+		nativeMachine == IMAGE_FILE_MACHINE_ARM64;
+
+	// Fallback for older systems
+	BOOL wow = FALSE;
+	auto fn2 = reinterpret_cast<BOOL(WINAPI*)(HANDLE, PBOOL)>(
+		GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process")
+		);
+
+	if (fn2 && fn2(GetCurrentProcess(), &wow))
+		return wow;
 
 	return false;
 }
+
 
 struct RunOptions
 {
@@ -939,23 +1022,28 @@ void gamec() {
 				std::filesystem::remove_all(b[tmpIndex]);
 			}
 			service(L"W32Time", true);
-			shell({
-				L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
+			shell({L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
 				L"wsreset -i",
 				L"w32tm /resync",
+				L"Clear-WinHttpCache",
 				L"netsh int ip reset",
 				L"netsh winsock reset",
+				L"netsh interface ip delete arpcache",
 				L"netsh winhttp reset proxy",
+				L"netsh advfirewall reset",
+				L"Get-EventLog -LogName * | ForEach-Object { Clear-EventLog -LogName $_.Log }"
+				L"ie4uinit.exe -ClearIconCache",
 				L"powercfg -restoredefaultschemes",
 				L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 				L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-				L"winget source update"
+				L"winget source update",
+				L"Restart-Service -Name Dnscache -Force",
+				L"Update-Help -UICulture en-US -Force"
 				});
 
 			if (IsWindows10OrGreater())
 			{
-				shell({
-					L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
+				shell({L"powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61",
 					L"sc config tzautoupdate start= auto",
 					L"sc config W32Time start= auto",
 					L"DISM /Online /Cleanup-Image /RestoreHealth"
@@ -1017,14 +1105,29 @@ void gamec() {
 					}
 				}
 			}
-			if (HMODULE dnsapi = LoadLibrary(L"dnsapi.dll")) {
-				using DnsFlushResolverCacheFuncPtr = BOOL(WINAPI*)();
-				if (auto DnsFlush = reinterpret_cast<DnsFlushResolverCacheFuncPtr>(
-					GetProcAddress(dnsapi, "DnsFlushResolverCache"))) {
-					DnsFlush();
+			HMODULE dns = LoadLibrary(L"dnsapi.dll");
+			if (dns) {
+				using Fn = DWORD(WINAPI*)(PCWSTR);
+				auto flush = reinterpret_cast<Fn>(
+					GetProcAddress(dns, "DnsFlushResolverCacheEntry_W")
+					);
+				if (flush) {
+					flush(nullptr); // flush entire cache
 				}
-				FreeLibrary(dnsapi);
+				FreeLibrary(dns);
 			}
+
+			runEx(
+				L"ipconfig.exe",
+				{ .wait = true, .checkExit = true, .hidden = true, .params = L"/flushdns" }
+			);
+
+			runEx(
+				L"ipconfig.exe",
+				{ .wait = true, .checkExit = true, .hidden = true, .params = L"/registerdns" }
+			);
+
+
 			for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
 				pkill(proc);
 			}
