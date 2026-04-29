@@ -93,9 +93,7 @@ bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outpu
 		return false;
 	}
 
-	DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS)
-		? WINHTTP_FLAG_SECURE
-		: 0;
+	DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
 
 	HINTERNET hRequest = WinHttpOpenRequest(
 		hConnect,
