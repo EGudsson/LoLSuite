@@ -1031,7 +1031,6 @@ void gamec() {
 				L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 				L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
 				L"winget source update",
-				L"Restart-Service -Name Dnscache -Force",
 				L"Update-Help -UICulture en-US -Force"
 				});
 
