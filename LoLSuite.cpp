@@ -14,6 +14,7 @@
 #include <thread>
 #include "resource.h"
 
+std::error_code ec;
 static std::atomic<bool> g_isBusy = false;
 const wchar_t* font = L"Segoe UI Variable";
 int cb_index = 0;
@@ -31,6 +32,11 @@ static void AppendP(int index, const std::wstring& addition) {
 static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = JoinP(b[srcIndex], addition);
 }
+
+static void CombineP(int destIndex, const std::filesystem::path& src, const std::wstring& addition) {
+	b[destIndex] = JoinP(src, addition);
+}
+
 
 bool isElevated()
 {
@@ -133,10 +139,8 @@ void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 
 	downloadWinHTTP(fullUrl, outputPath);
 
-	// Local Remove Zone.Identifier
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
-	std::error_code ec;
 	std::filesystem::remove(zone, ec);
 }
 
@@ -209,21 +213,14 @@ bool pkill(const std::wstring& processName)
 bool x64()
 {
 	USHORT processMachine = 0, nativeMachine = 0;
-
-	auto fn = reinterpret_cast<BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*)>(
-		GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2")
-		);
+	auto fn = reinterpret_cast<BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*)>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2"));
 
 	if (fn && fn(GetCurrentProcess(), &processMachine, &nativeMachine))
 		return nativeMachine == IMAGE_FILE_MACHINE_AMD64 ||
 		nativeMachine == IMAGE_FILE_MACHINE_ARM64;
 
-	// Fallback for older systems
 	BOOL wow = FALSE;
-	auto fn2 = reinterpret_cast<BOOL(WINAPI*)(HANDLE, PBOOL)>(
-		GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process")
-		);
-
+	auto fn2 = reinterpret_cast<BOOL(WINAPI*)(HANDLE, PBOOL)>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process"));
 	if (fn2 && fn2(GetCurrentProcess(), &wow))
 		return wow;
 
@@ -328,44 +325,70 @@ bool shell(const std::vector<std::wstring>& commands)
 	return runProcess(L"pwsh.exe", (L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\""), true);
 }
 
-std::wstring folder(const std::wstring& pathLabel) {
-	std::wstring iniPath = (std::filesystem::current_path() / L"LoLSuite.cfg").wstring();
-	wchar_t savedPath[MAX_PATH + 1] = {};
-	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", savedPath, MAX_PATH + 1, iniPath.c_str());
-	if (wcslen(savedPath) > 0) {
-		b[0] = savedPath;
+std::wstring folder(const std::wstring& pathLabel)
+{
+	const std::filesystem::path iniPath =
+		std::filesystem::current_path() / L"LoLSuite.ini";
+
+	// --- Read saved path ---
+	wchar_t saved[MAX_PATH + 1]{};
+	GetPrivateProfileStringW(
+		pathLabel.c_str(), L"path", L"",
+		saved, MAX_PATH, iniPath.c_str()
+	);
+
+	if (saved[0] != L'\0') {
+		b[0] = saved;
 		return b[0];
 	}
-	std::wstring message = L"Select: " + pathLabel;
-	MessageBoxEx(nullptr, message.c_str(), L"LoLSuite", MB_OK, 0);
-	b[0].clear();
-	std::wstring selectedPath;
-	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-	if (FAILED(hrInit)) return selectedPath;
-	IFileDialog* pfd = nullptr;
-	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
-	if (SUCCEEDED(hr) && pfd) {
-		DWORD dwOptions;
-		pfd->GetOptions(&dwOptions);
-		pfd->SetOptions(dwOptions | FOS_PICKFOLDERS);
 
-		if (SUCCEEDED(pfd->Show(nullptr))) {
-			IShellItem* psi = nullptr;
-			if (SUCCEEDED(pfd->GetResult(&psi)) && psi) {
-				PWSTR pszPath = nullptr;
-				if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszPath))) {
-					selectedPath = pszPath;
-					CoTaskMemFree(pszPath);
+	// --- Ask user ---
+	MessageBoxW(nullptr,
+		(L"Select: " + pathLabel).c_str(),
+		L"LoLSuite",
+		MB_OK);
+
+	b[0].clear();
+	std::wstring selected;
+
+	// COM init (RAII)
+	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	if (FAILED(hrInit))
+		return L"";
+
+	{
+		IFileDialog* dlg = nullptr;
+		if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr,
+			CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dlg))))
+		{
+			DWORD opts = 0;
+			dlg->GetOptions(&opts);
+			dlg->SetOptions(opts | FOS_PICKFOLDERS);
+
+			if (SUCCEEDED(dlg->Show(nullptr))) {
+				IShellItem* item = nullptr;
+				if (SUCCEEDED(dlg->GetResult(&item))) {
+					PWSTR psz = nullptr;
+					if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &psz))) {
+						selected = psz;
+						CoTaskMemFree(psz);
+					}
+					item->Release();
 				}
-				psi->Release();
 			}
+			dlg->Release();
 		}
-		pfd->Release();
 	}
+
 	CoUninitialize();
-	b[0] = selectedPath;
-	if (!b[0].empty()) {
-		WritePrivateProfileString(pathLabel.c_str(), L"path", b[0].c_str(), iniPath.c_str());
+
+	// Save + return
+	if (!selected.empty()) {
+		b[0] = selected;
+		WritePrivateProfileStringW(
+			pathLabel.c_str(), L"path",
+			b[0].c_str(), iniPath.c_str()
+		);
 	}
 
 	return b[0];
@@ -403,22 +426,28 @@ static void service(const std::wstring& serviceName, bool start, bool restart = 
 	}
 }
 
-bool checkdx9()
+bool dx()
 {
-	wchar_t path[MAX_PATH + 1];
-	GetSystemDirectory(path, MAX_PATH + 1);
+	wchar_t* sysroot = nullptr;
+	size_t len = 0;
+
+	// Safe getenv
+	if (_wdupenv_s(&sysroot, &len, L"SystemRoot") != 0 || !sysroot)
+		return false; // environment variable missing → treat as failure
+
+	std::filesystem::path sys = std::filesystem::path(sysroot) / L"System32";
+	free(sysroot); // must free the buffer allocated by _wdupenv_s
 
 	auto exists = [&](const wchar_t* name) -> bool
 		{
-			wchar_t full[MAX_PATH + 1];
-			wcscpy_s(full, path);
-			wcscat_s(full, L"\\");
-			wcscat_s(full, name);
-			return GetFileAttributes(full) != INVALID_FILE_ATTRIBUTES;
+			return std::filesystem::exists(sys / name);
 		};
 
-	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
+	return exists(L"d3dx9_43.dll")
+		&& exists(L"D3DCompiler_43.dll")
+		&& exists(L"XAudio2_7.dll");
 }
+
 
 struct FileOp {
 	int dstId;
@@ -457,7 +486,6 @@ void Game(const GameConfig& config, bool restore)
 		{
 			if (op.restorePath.empty())
 			{
-				std::error_code ec;
 				std::filesystem::remove(b[op.dstId], ec);
 				continue;
 			}
@@ -773,46 +801,22 @@ void gamec() {
 		else
 		{
 			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
-			// Create temp directory inside current working directory
-			std::filesystem::path tempDir = std::filesystem::current_path() / "temp";
-			std::error_code ec;
-			std::filesystem::create_directories(tempDir, ec);
-
-			// Build file paths
-			std::filesystem::path file_x64 = tempDir / "vcredist_x64.exe";
-			std::filesystem::path file_x86 = tempDir / "vcredist_x86.exe";
+			std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
+			std::filesystem::create_directory(tmp, ec);
 
 			if (x64())
 			{
-				r2(
-					L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE",
-					file_x64.c_str(),
-					true
-				);
-
+				std::filesystem::path file_x64 = tmp / "vcredist_x64.exe";
+				r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE", file_x64.c_str(), true);
 				runEx(file_x64.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
 			}
-
-			r2(
-				L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE",
-				file_x86.c_str(),
-				true
-			);
-
+			std::filesystem::path file_x86 = tmp / "vcredist_x86.exe";
+			r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE", file_x86.c_str(), true);
 			runEx(file_x86.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
 
-			// Remove entire temp directory (recursively)
-			std::filesystem::remove_all(tempDir, ec);
-
-
-			if (!checkdx9())
+			if (!dx() && x64())
 			{
-				constexpr int tmpIndex = 158;
 				constexpr int baseIndex = 0;
-
-				b[tmpIndex] = (std::filesystem::current_path() / L"tmp").wstring();
-				std::filesystem::create_directory(b[tmpIndex]);
-
 				const std::vector<std::wstring> files = {
 			    L"Apr2005_d3dx9_25_x64.cab",
 				L"Apr2005_d3dx9_25_x86.cab",
@@ -978,7 +982,7 @@ void gamec() {
 					const int idx = baseIndex + static_cast<int>(i);
 
 					b[idx].clear();
-					CombineP(idx, tmpIndex, files[i]);
+					CombineP(idx, tmp, files[i]);
 
 					const std::wstring url = L"DXSETUP/" + files[i];
 					r2(url, b[idx]);
@@ -993,10 +997,11 @@ void gamec() {
 
 				if (allFilesPresent)
 					runEx(b[baseIndex + 63], { .wait = true, .params = L"/silent" });
-
-				std::filesystem::remove_all(b[tmpIndex]);
 			}
+			std::filesystem::remove_all(tmp, ec);
+
 			service(L"W32Time", true);
+			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 			shell({L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
 				L"wsreset -i",
 				L"w32tm /resync",
@@ -1090,21 +1095,14 @@ void gamec() {
 				FreeLibrary(dns);
 			}
 
-			runEx(
-				L"ipconfig.exe",
-				{ .wait = true, .checkExit = true, .hidden = true, .params = L"/flushdns" }
-			);
-
-			runEx(
-				L"ipconfig.exe",
-				{ .wait = true, .checkExit = true, .hidden = true, .params = L"/registerdns" }
-			);
-
-
+			runEx(L"ipconfig.exe", { .wait = true, .checkExit = true, .hidden = true, .params = L"/flushdns" });
+			runEx(L"ipconfig.exe", { .wait = true, .checkExit = true, .hidden = true, .params = L"/registerdns" });
+			runEx(L"rundll32.exe", {.wait = true, .checkExit = true, .hidden = true, .params = L"InetCpl.cpl,ClearMyTracksByProcess 4351"
+				});
 			for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
 				pkill(proc);
 			}
-			ShellExecute(nullptr, L"open", L"RunDll32.exe", L"InetCpl.cpl, ClearMyTracksByProcess 4351", nullptr, SW_HIDE);
+
 			auto CacheClear = [](const std::filesystem::path& path) {
 				if (std::filesystem::exists(path)) {
 					std::filesystem::remove_all(path);
@@ -1155,20 +1153,6 @@ void gamec() {
 		}
 	}
 
-static void handleCommand(int cbi, bool restore)
-{
-	static const std::vector<std::wstring> gameKeys = {L"leagueoflegends", L"dota2", L"smite2", L"mgs", L"blands4", L"oblivionr", L"silenthillf", L"outworlds2", L"minecraft"};
-	if (cbi >= 0 && cbi < (int)gameKeys.size()) {
-		manage(gameKeys[cbi], restore);
-		return;
-	}
-
-	if (cbi == 9) {
-		gamec();
-		return;
-	}
-}
-
 void RunAsyncPatch(int index, bool rest)
 {
 	if (g_isBusy.exchange(true))
@@ -1179,35 +1163,26 @@ void RunAsyncPatch(int index, bool rest)
 	EnableWindow(listbox, FALSE);
 
 	std::thread([index, rest]() {
+		static const std::vector<std::wstring> gameKeys = { L"leagueoflegends", L"dota2", L"smite2", L"mgs", L"blands4", L"oblivionr", L"silenthillf", L"outworlds2", L"minecraft" };
+		if (index >= 0 && index < (int)gameKeys.size()) {
+			manage(gameKeys[index], rest);
+			return;
+		}
 
-		handleCommand(index, rest);
-
+		if (index == 9) {
+			gamec();
+			return;
+		}
 		PostMessage(hWnd, WM_APP + 1, 0, 0);
-
 		}).detach();
 }
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	static HBRUSH transparentBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
-	static HBRUSH hBrush = CreateSolidBrush(RGB(180, 210, 255));
-	constexpr COLORREF kText = RGB(32, 32, 32);
-
 	switch (msg)
 	{
-	case WM_ERASEBKGND:
-		return 1;
-
-	case WM_PAINT:
-	{
-		PAINTSTRUCT ps;
-		BeginPaint(hWnd, &ps);
-		EndPaint(hWnd, &ps);
-		return 0;
-	}
 	case WM_APP + 1:
 		g_isBusy = false;
-
 		EnableWindow(patch, TRUE);
 		EnableWindow(restore, TRUE);
 		EnableWindow(listbox, TRUE);
@@ -1221,25 +1196,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		HDC dc = (HDC)wParam;
 		SetBkMode(dc, TRANSPARENT);
-		SetTextColor(dc, kText);
-		return (LRESULT)hBrush;
+		SetTextColor(dc, RGB(32, 32, 32));
+		return (LRESULT)CreateSolidBrush(RGB(180, 210, 255));
 	}
 
 	case WM_DPICHANGED:
 	{
-		UINT dpi = HIWORD(wParam);
-		int px = -MulDiv(16, dpi, 96);
-
-		HFONT f = CreateFont(px, 0, 0, 0, FW_BOLD,
-			FALSE, FALSE, FALSE,
-			DEFAULT_CHARSET,
-			OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS,
-			CLEARTYPE_QUALITY,
-			VARIABLE_PITCH | FF_SWISS,
-			font);
-
-		SendMessage(hWnd, WM_SETFONT, (WPARAM)f, TRUE);
+		SendMessage(hWnd, WM_SETFONT, (WPARAM)CreateFontW(-MulDiv(16, HIWORD(wParam), 96), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, font), TRUE);
 		return 0;
 	}
 
@@ -1248,15 +1211,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		auto* dis = (LPDRAWITEMSTRUCT)lParam;
 		if (dis && dis->CtlType == ODT_BUTTON) {
 
-			// Remove focus rectangle too
 			dis->itemState &= ~ODS_FOCUS;
 
-			const COLORREF borderColor = RGB(200, 220, 255);
-			const COLORREF fg = RGB(20, 40, 80);
-
-			// No hover/press overlay anymore
-
-			HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
+			HPEN pen = CreatePen(PS_SOLID, 1, RGB(200, 220, 255));
 			HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
 			HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
 
@@ -1269,7 +1226,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			SelectObject(dis->hDC, oldPen);
 			DeleteObject(pen);
 
-			SetTextColor(dis->hDC, fg);
+			SetTextColor(dis->hDC, RGB(20, 40, 80));
 			SetBkMode(dis->hDC, TRANSPARENT);
 
 			wchar_t text[256];
@@ -1285,13 +1242,39 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_COMMAND:
 	{
 		const UINT id = LOWORD(wParam);
-		const UINT code = HIWORD(wParam);
 
-		if (code == CBN_SELCHANGE)
+		if (HIWORD(wParam) == CBN_SELCHANGE)
 			cb_index = (int)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
 
-		if (id == 1 || id == 2) {
-			RunAsyncPatch(cb_index, id == 2);
+		if (id == 1 || id == 2)
+		{
+			if (g_isBusy.exchange(true))
+				return 0;
+
+			EnableWindow(patch, FALSE);
+			EnableWindow(restore, FALSE);
+			EnableWindow(listbox, FALSE);
+
+			int index = cb_index;
+			bool rest = (id == 2);
+
+			std::thread([index, rest]() {
+
+				static const std::vector<std::wstring> gameKeys = {
+					L"leagueoflegends", L"dota2", L"smite2", L"mgs",
+					L"blands4", L"oblivionr", L"silenthillf",
+					L"outworlds2", L"minecraft"
+				};
+
+				if (index >= 0 && index < (int)gameKeys.size()) {
+					manage(gameKeys[index], rest);
+				}
+				else if (index == 9) {
+					gamec();
+				}
+				}).detach();
+
+			PostMessage(hWnd, WM_APP + 1, 0, 0);
 			return 0;
 		}
 
@@ -1314,7 +1297,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-
 int WINAPI wWinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -1331,35 +1313,14 @@ int WINAPI wWinMain(
 	const int comboTop = TOP + CH + 10;
 	const int comboWidth = W - BS * 2;
 
-	WNDCLASSEXW wcx{
-	sizeof(WNDCLASSEXW),
-	CS_HREDRAW | CS_VREDRAW,
-	WndProc,
-	0, 0,
-	hInstance,
-	LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-	LoadCursor(nullptr, IDC_ARROW),
-	(HBRUSH)NULL_BRUSH,
-	nullptr,
-	L"LoLSuite",
-	nullptr
-	};
-
+	WNDCLASSEXW wcx{sizeof(WNDCLASSEXW), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), (HBRUSH)NULL_BRUSH, nullptr, L"LoLSuite", nullptr};
 	RegisterClassEx(&wcx);
-
-	hWnd = CreateWindowEx(
-		0, L"LoLSuite", L"LoLSuite : https://lolsuite.org",
-		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-		CW_USEDEFAULT, CW_USEDEFAULT, W, H,
-		nullptr, nullptr, hInstance, nullptr
-	);
-
+	hWnd = CreateWindowEx(0, L"LoLSuite", L"LoLSuite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, W, H, nullptr, nullptr, hInstance, nullptr);
 	CoInitialize(nullptr);
 	shortcut();
 	CoUninitialize();
 
-	int px = -MulDiv(16, GetDpiForWindow(hWnd), 96);
-	HFONT uiFont = CreateFont(px, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, font);
+	HFONT uiFont = CreateFontW(-MulDiv(16, GetDpiForWindow(hWnd), 96), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, font);
 	SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
 	patch = CreateWindowEx(0, L"BUTTON", L"Patch", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
 	restore = CreateWindowEx(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
@@ -1374,8 +1335,19 @@ int WINAPI wWinMain(
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
-	if (OpenClipboard(nullptr)) { EmptyClipboard(); CloseClipboard(); }
-	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+	if (OpenClipboard(nullptr)) {
+		EmptyClipboard();
+
+		HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t));
+		if (h) {
+			wchar_t* p = (wchar_t*)GlobalLock(h);
+			*p = L'\0';
+			GlobalUnlock(h);
+			SetClipboardData(CF_UNICODETEXT, h);
+		}
+
+		CloseClipboard();
+	}
 
 	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0)) {
