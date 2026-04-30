@@ -1182,7 +1182,9 @@ static void handleCommand(int cbi, bool restore)
 
 	if (cbi == 9) {
 		gamec();
+		return;
 	}
+	MessageBoxW(hWnd, L"Operation completed.", L"LoLSuite", MB_OK);
 }
 
 void RunAsyncPatch(int index, bool rest)
@@ -1227,13 +1229,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		EnableWindow(patch, TRUE);
 		EnableWindow(restore, TRUE);
 		EnableWindow(listbox, TRUE);
-
-		MessageBoxW(hWnd, L"Operation completed.", L"LoLSuite", MB_OK);
+		SetFocus(listbox);
 		return 0;
-
-	case WM_CTLCOLORBTN:
-		SetBkMode((HDC)wParam, TRANSPARENT);
-		return (LRESULT)transparentBrush;
 
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
@@ -1268,20 +1265,14 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		auto* dis = (LPDRAWITEMSTRUCT)lParam;
 		if (dis && dis->CtlType == ODT_BUTTON) {
-			const bool selected = (dis->itemState & ODS_SELECTED);
-			const bool hot = (dis->itemState & ODS_HOTLIGHT);
 
-			const COLORREF hoverOverlay = RGB(150, 190, 255);
-			const COLORREF pressOverlay = RGB(100, 150, 255);
+			// Remove focus rectangle too
+			dis->itemState &= ~ODS_FOCUS;
+
 			const COLORREF borderColor = RGB(200, 220, 255);
 			const COLORREF fg = RGB(20, 40, 80);
 
-			if (selected || hot) {
-				COLORREF col = selected ? pressOverlay : hoverOverlay;
-				HBRUSH overlay = CreateSolidBrush(col);
-				FillRect(dis->hDC, &dis->rcItem, overlay);
-				DeleteObject(overlay);
-			}
+			// No hover/press overlay anymore
 
 			HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
 			HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
@@ -1303,6 +1294,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			GetWindowText(dis->hwndItem, text, 256);
 			DrawText(dis->hDC, text, -1, &dis->rcItem,
 				DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
 			return TRUE;
 		}
 		return FALSE;
@@ -1325,7 +1317,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			RunAsyncPatch(cb_index, id == 2);
 			return 0;
 		}
-
 
 		if (id == IDM_EXIT) {
 			SendMessage(hWnd, WM_CLOSE, 0, 0);
