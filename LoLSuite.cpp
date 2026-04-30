@@ -1010,7 +1010,7 @@ void gamec() {
 				L"netsh interface ip delete arpcache",
 				L"netsh winhttp reset proxy",
 				L"netsh advfirewall reset",
-				L"Get-EventLog -LogName * | ForEach-Object { Clear-EventLog -LogName $_.Log }"
+				L"Get-EventLog -LogName * | ForEach-Object { Clear-EventLog -LogName $_.Log }",
 				L"ie4uinit.exe -ClearIconCache",
 				L"powercfg -restoredefaultschemes",
 				L"Add-WindowsCapability -Online -Name NetFx3~~~~",
