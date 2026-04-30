@@ -47,23 +47,6 @@ bool isElevated()
 	return ok && elevation.TokenIsElevated;
 }
 
-void Theme(HWND hWnd, bool Mica)
-{
-	DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
-	DwmSetWindowAttribute(hWnd,
-		DWMWA_WINDOW_CORNER_PREFERENCE,
-		&corner,
-		sizeof(corner));
-
-	DWM_SYSTEMBACKDROP_TYPE backdrop =
-		Mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
-
-	DwmSetWindowAttribute(hWnd,
-		DWMWA_SYSTEMBACKDROP_TYPE,
-		&backdrop,
-		sizeof(backdrop));
-}
-
 bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 {
 	URL_COMPONENTS uc{};
@@ -1184,7 +1167,6 @@ static void handleCommand(int cbi, bool restore)
 		gamec();
 		return;
 	}
-	MessageBoxW(hWnd, L"Operation completed.", L"LoLSuite", MB_OK);
 }
 
 void RunAsyncPatch(int index, bool rest)
@@ -1299,11 +1281,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		}
 		return FALSE;
 	}
-
-	case WM_SHOWWINDOW:
-		if (wParam && !lParam)
-			Theme(hWnd, true);
-		break;
 
 	case WM_COMMAND:
 	{
