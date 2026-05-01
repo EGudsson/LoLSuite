@@ -291,7 +291,7 @@ bool shell(const std::vector<std::wstring>& commands)
 
 	if (!fileExistsInPath(L"winget.exe"))
 	{
-		runProcess(L"powershell.exe", L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"", true);
+		runProcess(L"powershell", L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\\AppXManifest.xml' }\"", true);
 
 		if (!fileExistsInPath(L"winget.exe"))
 			return false;
@@ -299,14 +299,14 @@ bool shell(const std::vector<std::wstring>& commands)
 
 	if (!fileExistsInPath(L"pwsh.exe"))
 	{
-		runProcess(L"winget.exe", L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements", true);
+		runProcess(L"winget", L"install Microsoft.PowerShell --silent --accept-package-agreements --accept-source-agreements", true);
 	}
 
 	std::wstring script;
 	for (const auto& c : commands)
 		script += c + L"; ";
 
-	return runProcess(L"pwsh.exe", (L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\""), true);
+	return runProcess(L"pwsh", (L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& { " + script + L" }\""), true);
 }
 
 std::wstring folder(const std::wstring& pathLabel)
@@ -986,7 +986,7 @@ void gamec() {
 
 			service(L"W32Time", true);
 			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-			shell({L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr.exe' -ArgumentList '/sagerun:1'",
+			shell({L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr' -ArgumentList '/sagerun:1'",
 				L"wsreset -i",
 				L"w32tm /resync",
 				L"netsh int ip reset",
@@ -995,7 +995,7 @@ void gamec() {
 				L"netsh winhttp reset proxy",
 				L"netsh advfirewall reset",
 				L"Get-EventLog -LogName * | ForEach-Object { Clear-EventLog -LogName $_.Log }",
-				L"ie4uinit.exe -ClearIconCache",
+				L"ie4uinit -ClearIconCache",
 				L"powercfg -restoredefaultschemes",
 				L"Add-WindowsCapability -Online -Name NetFx3~~~~",
 				L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
@@ -1079,9 +1079,9 @@ void gamec() {
 				FreeLibrary(dns);
 			}
 
-			runEx(L"ipconfig.exe", { .wait = true, .checkExit = true, .hidden = true, .params = L"/flushdns" });
-			runEx(L"ipconfig.exe", { .wait = true, .checkExit = true, .hidden = true, .params = L"/registerdns" });
-			runEx(L"rundll32.exe", {.wait = true, .checkExit = true, .hidden = true, .params = L"InetCpl.cpl,ClearMyTracksByProcess 4351"
+			runEx(L"ipconfig", { .wait = true, .checkExit = true, .hidden = true, .params = L"/flushdns" });
+			runEx(L"ipconfig", { .wait = true, .checkExit = true, .hidden = true, .params = L"/registerdns" });
+			runEx(L"rundll32", {.wait = true, .checkExit = true, .hidden = true, .params = L"InetCpl.cpl,ClearMyTracksByProcess 4351"
 				});
 			for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
 				pkill(proc);
