@@ -501,7 +501,7 @@ void Game(const GameConfig& config, bool restore)
 
 }
 
-static GameConfig LeagueOfLegendsConfig() {
+static GameConfig LoLConfig() {
 	return {
 		L"lol",
 		L"<drive>:\Riot Games",
@@ -714,7 +714,7 @@ static GameConfig Outworlds2Config() {
 }
 
 static const std::unordered_map<std::wstring, GameConfig(*)()> gameMap = {
-	{ L"leagueoflegends", LeagueOfLegendsConfig },
+	{ L"leagueoflegends", LoLConfig },
 	{ L"dota2", Dota2Config },
 	{ L"smite2", Smite2Config },
 	{ L"mgs", MgsConfig },
