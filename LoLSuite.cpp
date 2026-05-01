@@ -415,21 +415,18 @@ bool dx()
 	wchar_t* sysroot = nullptr;
 	size_t len = 0;
 
-	// Safe getenv
 	if (_wdupenv_s(&sysroot, &len, L"SystemRoot") != 0 || !sysroot)
-		return false; // environment variable missing → treat as failure
+		return false;
 
 	std::filesystem::path sys = std::filesystem::path(sysroot) / L"System32";
-	free(sysroot); // must free the buffer allocated by _wdupenv_s
+	free(sysroot);
 
 	auto exists = [&](const wchar_t* name) -> bool
 		{
 			return std::filesystem::exists(sys / name);
 		};
 
-	return exists(L"d3dx9_43.dll")
-		&& exists(L"D3DCompiler_43.dll")
-		&& exists(L"XAudio2_7.dll");
+	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
 }
 
 
