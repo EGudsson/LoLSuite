@@ -68,10 +68,7 @@ bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outpu
 	if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc))
 		return false;
 
-	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0",
-		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-		WINHTTP_NO_PROXY_NAME,
-		WINHTTP_NO_PROXY_BYPASS, 0);
+	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 
 	if (!hSession)
 		return false;
@@ -82,16 +79,7 @@ bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outpu
 		return false;
 	}
 
-	DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
-
-	HINTERNET hRequest = WinHttpOpenRequest(
-		hConnect,
-		L"GET",
-		path,
-		nullptr,
-		WINHTTP_NO_REFERER,
-		WINHTTP_DEFAULT_ACCEPT_TYPES,
-		flags);
+	HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path, nullptr,WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
 
 	if (!hRequest) {
 		WinHttpCloseHandle(hConnect);
@@ -99,9 +87,7 @@ bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outpu
 		return false;
 	}
 
-	BOOL sent = WinHttpSendRequest(hRequest,
-		WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-		nullptr, 0, 0, 0);
+	BOOL sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0);
 
 	if (!sent || !WinHttpReceiveResponse(hRequest, nullptr)) {
 		WinHttpCloseHandle(hRequest);
@@ -136,9 +122,7 @@ bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outpu
 void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
 	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
-
 	downloadWinHTTP(fullUrl, outputPath);
-
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
 	std::filesystem::remove(zone, ec);
