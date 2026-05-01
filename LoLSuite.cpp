@@ -504,7 +504,7 @@ void Game(const GameConfig& config, bool restore)
 static GameConfig LeagueOfLegendsConfig() {
 	return {
 		L"lol",
-		L"Riot Games Base Folder",
+		L"<drive>:\Riot Games",
 		{
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"LeagueCrashHandler64.exe",
@@ -548,7 +548,7 @@ static GameConfig LeagueOfLegendsConfig() {
 static GameConfig Dota2Config() {
 	return {
 		L"dota2",
-		L"DOTA2 Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common\dota 2 beta",
 		{ L"dota2.exe" },
 		{
 			{8, 0, L"game\\bin\\win64"},
@@ -566,7 +566,7 @@ static GameConfig Dota2Config() {
 static GameConfig Smite2Config() {
 	return {
 		L"smite2",
-		L"SMITE2 Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common\SMITE2",
 		{ L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" },
 		{
 			{8, 0, L"Windows\\Engine\\Binaries\\Win64"},
@@ -589,7 +589,7 @@ static GameConfig Smite2Config() {
 static GameConfig MgsConfig() {
 	return {
 		L"mgs",
-		L"METAL GEAR SOLID Delta Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common\MGSDelta",
 		{ L"MGSDelta.exe", L"MGSDelta-Win64-Shipping.exe", L"Nightmare-Win64-Shipping.exe", L"Foxhunt-Win64-Shipping.exe"},
 		{
 			{9, 0, L"MGSDelta_Foxhunt\\Binaries\\Win64"},
@@ -623,7 +623,7 @@ static GameConfig MgsConfig() {
 static GameConfig Blands4Config() {
 	return {
 		L"blands4",
-		L"Borderlands 4 Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common\Borderlands 4",
 		{ L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" },
 		{
 			{8, 0, L"OakGame\\Binaries\\Win64"},
