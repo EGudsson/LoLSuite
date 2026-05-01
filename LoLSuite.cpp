@@ -646,7 +646,7 @@ static GameConfig Blands4Config() {
 static GameConfig OblivionRConfig() {
 	return {
 		L"oblivionr",
-		L"Oblivion Remastered Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common",
 		{ L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" },
 		{
 			{8, 0, L"OblivionRemastered\\Binaries\\Win64"},
@@ -671,7 +671,7 @@ static GameConfig OblivionRConfig() {
 static GameConfig SilentHillFConfig() {
 	return {
 		L"silenthillf",
-		L"SILENT HILL f Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common",
 		{ L"SHf-Win64-Shipping.exe", L"SHf.exe"},
 		{
 			{8, 0, L"SHf\\Binaries\\Win64"},
@@ -696,7 +696,7 @@ static GameConfig SilentHillFConfig() {
 static GameConfig Outworlds2Config() {
 	return {
 		L"outworlds2",
-		L"The Outer Worlds 2 Base Dir",
+		L"<drive>:\Program Files (x86)\Steam\steamapps\common",
 		{ L"TheOuterWorlds2-Win64-Shipping.exe", L"TheOuterWorlds2.exe"},
 		{
 			{8, 0, L"Arkansas\\Binaries\\Win64"},
