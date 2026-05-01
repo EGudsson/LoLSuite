@@ -488,7 +488,7 @@ void Game(const GameConfig& config, bool restore)
 static GameConfig LoLConfig() {
 	return {
 		L"lol",
-		L"<drive>:\Riot Games",
+		L"<drive>:\\Riot Games",
 		{
 			L"LeagueClient.exe", L"LeagueClientUx.exe", L"LeagueClientUxRender.exe",
 			L"League of Legends.exe", L"LeagueCrashHandler64.exe",
@@ -532,7 +532,7 @@ static GameConfig LoLConfig() {
 static GameConfig Dota2Config() {
 	return {
 		L"dota2",
-		L"<drive>:\Program Files (x86)\Steam\steamapps\common\dota 2 beta",
+		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta",
 		{ L"dota2.exe" },
 		{
 			{8, 0, L"game\\bin\\win64"},
@@ -550,7 +550,7 @@ static GameConfig Dota2Config() {
 static GameConfig Smite2Config() {
 	return {
 		L"smite2",
-		L"<drive>:\Program Files (x86)\Steam\steamapps\common\SMITE2",
+		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\SMITE2",
 		{ L"Hemingway.exe", L"Hemingway-Win64-Shipping.exe" },
 		{
 			{8, 0, L"Windows\\Engine\\Binaries\\Win64"},
@@ -607,7 +607,7 @@ static GameConfig MgsConfig() {
 static GameConfig Blands4Config() {
 	return {
 		L"blands4",
-		L"<drive>:\Program Files (x86)\Steam\steamapps\common\Borderlands 4",
+		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\Borderlands 4",
 		{ L"Borderlands4.exe", L"Borderlands4-Win64-Shipping.exe", L"BL4Launcher.exe" },
 		{
 			{8, 0, L"OakGame\\Binaries\\Win64"},
@@ -630,7 +630,7 @@ static GameConfig Blands4Config() {
 static GameConfig OblivionRConfig() {
 	return {
 		L"oblivionr",
-		L"<drive>:\Program Files (x86)\Steam\steamapps\common\The Elder Scrolls IV - Oblivion Remastered",
+		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\The Elder Scrolls IV - Oblivion Remastered",
 		{ L"OblivionRemastered.exe", L"OblivionRemastered-Win64-Shipping.exe" },
 		{
 			{8, 0, L"OblivionRemastered\\Binaries\\Win64"},
@@ -655,7 +655,7 @@ static GameConfig OblivionRConfig() {
 static GameConfig SilentHillFConfig() {
 	return {
 		L"silenthillf",
-		L"<drive>:\Program Files (x86)\Steam\steamapps\common\SILENT HILL f",
+		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\SILENT HILL f",
 		{ L"SHf-Win64-Shipping.exe", L"SHf.exe"},
 		{
 			{8, 0, L"SHf\\Binaries\\Win64"},
@@ -680,7 +680,7 @@ static GameConfig SilentHillFConfig() {
 static GameConfig Outworlds2Config() {
 	return {
 		L"outworlds2",
-		L"<drive>:\Program Files (x86)\Steam\steamapps\common\The Outer Worlds 2",
+		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\The Outer Worlds 2",
 		{ L"TheOuterWorlds2-Win64-Shipping.exe", L"TheOuterWorlds2.exe"},
 		{
 			{8, 0, L"Arkansas\\Binaries\\Win64"},
