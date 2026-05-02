@@ -13,13 +13,26 @@
 #include <fstream>
 #include <thread>
 #include "resource.h"
+#define WIN32_LEAN_AND_MEAN
 
 std::error_code ec;
 static std::atomic<bool> g_isBusy = false;
-const wchar_t* font = L"Segoe UI Variable";
 int cb_index = 0;
 std::vector<std::wstring> b(159);
 HWND hWnd, patch, restore, listbox;
+
+HFONT uiFont = CreateFont(
+	-MulDiv(16, GetDpiForWindow(hWnd), 96),
+	0, 0, 0,
+	FW_MEDIUM,
+	FALSE, FALSE, FALSE,
+	DEFAULT_CHARSET,
+	OUT_DEFAULT_PRECIS,
+	CLIP_DEFAULT_PRECIS,
+	CLEARTYPE_QUALITY,
+	VARIABLE_PITCH | FF_SWISS,
+	L"Segoe UI Variable"
+);
 
 static std::wstring JoinP(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
@@ -37,7 +50,6 @@ static void CombineP(int destIndex, const std::filesystem::path& src, const std:
 	b[destIndex] = JoinP(src, addition);
 }
 
-
 bool isElevated()
 {
 	HANDLE token = nullptr;
@@ -53,7 +65,7 @@ bool isElevated()
 	return ok && elevation.TokenIsElevated;
 }
 
-bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
+bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 {
 	URL_COMPONENTS uc{};
 	wchar_t host[256]{};
@@ -122,7 +134,7 @@ bool downloadWinHTTP(const std::wstring& url, const std::filesystem::path& outpu
 void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
 	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
-	downloadWinHTTP(fullUrl, outputPath);
+	WinHTTP(fullUrl, outputPath);
 	std::filesystem::path zone = outputPath;
 	zone += L":Zone.Identifier";
 	std::filesystem::remove(zone, ec);
@@ -210,7 +222,6 @@ bool x64()
 
 	return false;
 }
-
 
 struct RunOptions
 {
@@ -311,31 +322,20 @@ bool shell(const std::vector<std::wstring>& commands)
 
 std::wstring folder(const std::wstring& pathLabel)
 {
-	const std::filesystem::path iniPath =
-		std::filesystem::current_path() / L"LoLSuite.ini";
-
-	// --- Read saved path ---
+	const std::filesystem::path iniPath = std::filesystem::current_path() / L"LoLSuite.ini";
 	wchar_t saved[MAX_PATH + 1]{};
-	GetPrivateProfileStringW(
-		pathLabel.c_str(), L"path", L"",
-		saved, MAX_PATH, iniPath.c_str()
-	);
+	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", saved, MAX_PATH, iniPath.c_str());
 
 	if (saved[0] != L'\0') {
 		b[0] = saved;
 		return b[0];
 	}
 
-	// --- Ask user ---
-	MessageBoxW(nullptr,
-		(L"Select: " + pathLabel).c_str(),
-		L"LoLSuite",
-		MB_OK);
+	MessageBox(nullptr,(L"Select: " + pathLabel).c_str(), L"LoLSuite", MB_OK);
 
 	b[0].clear();
 	std::wstring selected;
 
-	// COM init (RAII)
 	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 	if (FAILED(hrInit))
 		return L"";
@@ -366,7 +366,6 @@ std::wstring folder(const std::wstring& pathLabel)
 
 	CoUninitialize();
 
-	// Save + return
 	if (!selected.empty()) {
 		b[0] = selected;
 		WritePrivateProfileStringW(
@@ -482,7 +481,7 @@ void Game(const GameConfig& config, bool restore)
 
 }
 
-static GameConfig LoLConfig() {
+static GameConfig LoL() {
 	return {
 		L"lol",
 		L"<drive>:\\Riot Games",
@@ -526,7 +525,7 @@ static GameConfig LoLConfig() {
 	};
 }
 
-static GameConfig Dota2Config() {
+static GameConfig Dota2() {
 	return {
 		L"dota2",
 		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta",
@@ -544,7 +543,7 @@ static GameConfig Dota2Config() {
 	};
 }
 
-static GameConfig Smite2Config() {
+static GameConfig Smite2() {
 	return {
 		L"smite2",
 		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\SMITE2",
@@ -567,7 +566,7 @@ static GameConfig Smite2Config() {
 	};
 }
 
-static GameConfig MgsConfig() {
+static GameConfig MGS() {
 	return {
 		L"mgs",
 		L"<drive>:\Program Files (x86)\Steam\steamapps\common\MGSDelta",
@@ -601,7 +600,7 @@ static GameConfig MgsConfig() {
 	};
 }
 
-static GameConfig Blands4Config() {
+static GameConfig Blands4() {
 	return {
 		L"blands4",
 		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\Borderlands 4",
@@ -624,7 +623,7 @@ static GameConfig Blands4Config() {
 	};
 }
 
-static GameConfig OblivionRConfig() {
+static GameConfig OblivionR() {
 	return {
 		L"oblivionr",
 		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\The Elder Scrolls IV - Oblivion Remastered",
@@ -649,7 +648,7 @@ static GameConfig OblivionRConfig() {
 	};
 }
 
-static GameConfig SilentHillFConfig() {
+static GameConfig SilentHillF() {
 	return {
 		L"silenthillf",
 		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\SILENT HILL f",
@@ -674,7 +673,7 @@ static GameConfig SilentHillFConfig() {
 	};
 }
 
-static GameConfig Outworlds2Config() {
+static GameConfig Outworlds2() {
 	return {
 		L"outworlds2",
 		L"<drive>:\\Program Files (x86)\\Steam\\steamapps\\common\\The Outer Worlds 2",
@@ -695,18 +694,17 @@ static GameConfig Outworlds2Config() {
 }
 
 static const std::unordered_map<std::wstring, GameConfig(*)()> gameMap = {
-	{ L"leagueoflegends", LoLConfig },
-	{ L"dota2", Dota2Config },
-	{ L"smite2", Smite2Config },
-	{ L"mgs", MgsConfig },
-	{ L"blands4", Blands4Config },
-	{ L"oblivionr", OblivionRConfig },
-	{ L"silenthillf", SilentHillFConfig },
-	{ L"outworlds2", Outworlds2Config }
+	{ L"leagueoflegends", LoL },
+	{ L"dota2", Dota2 },
+	{ L"smite2", Smite2 },
+	{ L"mgs", MGS },
+	{ L"blands4", Blands4 },
+	{ L"oblivionr", OblivionR },
+	{ L"silenthillf", SilentHillF },
+	{ L"outworlds2", Outworlds2 }
 };
 
 static void manage(const std::wstring& game, bool restore) {
-
 	auto it = gameMap.find(game);
 	if (it != gameMap.end()) {
 		Game(it->second(), restore);
@@ -716,7 +714,7 @@ static void manage(const std::wstring& game, bool restore) {
 	{
 		if (!isElevated())
 		{
-			MessageBoxW(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
+			MessageBox(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
 		else
 		{
@@ -784,16 +782,16 @@ void gamec() {
 			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
 			std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
 			std::filesystem::create_directory(tmp, ec);
-
 			if (x64())
 			{
 				std::filesystem::path file_x64 = tmp / "vcredist_x64.exe";
 				r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE", file_x64.c_str(), true);
 				runEx(file_x64.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
 			}
-			std::filesystem::path file_x86 = tmp / "vcredist_x86.exe";
-			r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE", file_x86.c_str(), true);
-			runEx(file_x86.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
+
+				std::filesystem::path file_x86 = tmp / "vcredist_x86.exe";
+				r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE", file_x86.c_str(), true);
+				runEx(file_x86.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });			
 
 			if (!dx() && x64())
 			{
@@ -1071,7 +1069,7 @@ void gamec() {
 					GetProcAddress(dns, "DnsFlushResolverCacheEntry_W")
 					);
 				if (flush) {
-					flush(nullptr); // flush entire cache
+					flush(nullptr);
 				}
 				FreeLibrary(dns);
 			}
@@ -1183,7 +1181,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 	case WM_DPICHANGED:
 	{
-		SendMessage(hWnd, WM_SETFONT, (WPARAM)CreateFontW(-MulDiv(16, HIWORD(wParam), 96), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, font), TRUE);
+		SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
 		return 0;
 	}
 
@@ -1198,22 +1196,16 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			HGDIOBJ oldPen = SelectObject(dis->hDC, pen);
 			HGDIOBJ oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
 
-			RoundRect(dis->hDC,
-				dis->rcItem.left, dis->rcItem.top,
-				dis->rcItem.right, dis->rcItem.bottom,
-				10, 10);
-
+			RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top, dis->rcItem.right, dis->rcItem.bottom, 10, 10);
 			SelectObject(dis->hDC, oldBrush);
 			SelectObject(dis->hDC, oldPen);
 			DeleteObject(pen);
-
 			SetTextColor(dis->hDC, RGB(20, 40, 80));
 			SetBkMode(dis->hDC, TRANSPARENT);
 
 			wchar_t text[256];
 			GetWindowText(dis->hwndItem, text, 256);
-			DrawText(dis->hDC, text, -1, &dis->rcItem,
-				DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
 			return TRUE;
 		}
@@ -1223,7 +1215,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_COMMAND:
 	{
 		const UINT id = LOWORD(wParam);
-
 		if (HIWORD(wParam) == CBN_SELCHANGE)
 			cb_index = (int)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
 
@@ -1284,37 +1275,87 @@ int WINAPI wWinMain(
 	_In_ LPWSTR lpCmdLine,
 	_In_ int nShowCmd)
 {
-	constexpr int W = 420, H = 160;
-	constexpr int CH = 30, TOP = 20;
-	constexpr int BW = 63, BS = 15;
+	constexpr int W = 420;
+	constexpr int H = 160;
 
-	const int xPatch = BS;
-	const int xRestore = xPatch + BW + BS;
-	const int comboLeft = BS;
-	const int comboTop = TOP + CH + 10;
-	const int comboWidth = W - BS * 2;
+	constexpr int TOP = 20;
+	constexpr int CH = 30;
 
-	WNDCLASSEXW wcx{sizeof(WNDCLASSEXW), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), (HBRUSH)NULL_BRUSH, nullptr, L"LoLSuite", nullptr};
-	RegisterClassEx(&wcx);
+	constexpr int BW = 63;
+	constexpr int BS = 15;
+
+	constexpr int xPatch = BS;
+	constexpr int xRestore = xPatch + BW + BS;
+
+	constexpr int comboLeft = BS;
+	constexpr int comboTop = TOP + CH + 10;
+	constexpr int comboWidth = W - BS * 2;
+
+	WNDCLASSEXW wcx{
+		sizeof(WNDCLASSEXW),
+		CS_HREDRAW | CS_VREDRAW,
+		WndProc,
+		0, 0,
+		hInstance,
+		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
+		LoadCursor(nullptr, IDC_ARROW),
+		(HBRUSH)NULL_BRUSH,
+		nullptr,
+		L"LoLSuite",
+		nullptr
+	};
+
+	RegisterClassExW(&wcx);
+
 	hWnd = CreateWindowEx(0, L"LoLSuite", L"LoLSuite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, W, H, nullptr, nullptr, hInstance, nullptr);
+
 	CoInitialize(nullptr);
 	shortcut();
 	CoUninitialize();
 
-	HFONT uiFont = CreateFontW(-MulDiv(16, GetDpiForWindow(hWnd), 96), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, font);
-	SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	patch = CreateWindowEx(0, L"BUTTON", L"Patch", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON, xPatch, TOP, BW, CH, hWnd, HMENU(1), hInstance, nullptr);
-	restore = CreateWindowEx(0, L"BUTTON", L"Restore", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON, xRestore, TOP, BW, CH, hWnd, HMENU(2), hInstance, nullptr);
-	listbox = CreateWindowEx(0, WC_COMBOBOX, nullptr, CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL, comboLeft, comboTop, comboWidth, 210, hWnd, HMENU(3), hInstance, nullptr);
-	SendMessage(patch, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	SendMessage(restore, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	SendMessage(listbox, WM_SETFONT, (WPARAM)uiFont, TRUE);
-	for (LPCWSTR s : {L"League of Legends", L"DOTA 2", L"SMITE 2",L"Metal Gear Solid Delta", L"Borderlands 4",L"The Elder Scrolls IV: Oblivion Remastered",L"SILENT HILL f", L"Outer Worlds 2",L"MineCraft", L"Café Clients"}) {
+	patch = CreateWindowEx(
+		0, L"BUTTON", L"Patch",
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
+		xPatch, TOP, BW, CH,
+		hWnd, HMENU(1), hInstance, nullptr
+	);
+
+	restore = CreateWindowEx(
+		0, L"BUTTON", L"Restore",
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
+		xRestore, TOP, BW, CH,
+		hWnd, HMENU(2), hInstance, nullptr
+	);
+
+	listbox = CreateWindowEx(
+		0, WC_COMBOBOX, nullptr,
+		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+		comboLeft, comboTop, comboWidth, 210,
+		hWnd, HMENU(3), hInstance, nullptr
+	);
+
+	for (HWND h : {patch, restore, listbox})
+		SendMessage(h, WM_SETFONT, (WPARAM)uiFont, TRUE);
+
+	for (LPCWSTR s : {
+		L"League of Legends",
+			L"DOTA 2",
+			L"SMITE 2",
+			L"Metal Gear Solid Delta",
+			L"Borderlands 4",
+			L"The Elder Scrolls IV: Oblivion Remastered",
+			L"SILENT HILL f",
+			L"Outer Worlds 2",
+			L"MineCraft",
+			L"Café Clients"
+	})
 		SendMessage(listbox, CB_ADDSTRING, 0, (LPARAM)s);
-	}
+
 	SendMessage(listbox, CB_SETCURSEL, 0, 0);
+
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
+
 
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
@@ -1331,6 +1372,7 @@ int WINAPI wWinMain(
 	}
 
 	MSG msg;
+
 	while (GetMessage(&msg, nullptr, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
