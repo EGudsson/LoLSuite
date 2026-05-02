@@ -1356,7 +1356,6 @@ int WINAPI wWinMain(
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
-
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
 
