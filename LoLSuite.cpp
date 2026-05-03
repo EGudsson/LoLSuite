@@ -67,7 +67,7 @@ bool isElevated()
 
 bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 {
-	URL_COMPONENTS uc{};
+	URL_COMPONENTSW uc{};
 	wchar_t host[256]{};
 	wchar_t path[2048]{};
 
@@ -80,10 +80,25 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 	if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc))
 		return false;
 
-	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-
+	HINTERNET hSession = WinHttpOpen(
+		L"LoLSuite/1.0",
+		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+		WINHTTP_NO_PROXY_NAME,
+		WINHTTP_NO_PROXY_BYPASS,
+		0
+	);
 	if (!hSession)
 		return false;
+
+	// Enable modern TLS
+	DWORD protocols =
+		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 |
+		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
+	WinHttpSetOption(hSession, WINHTTP_OPTION_SECURE_PROTOCOLS, &protocols, sizeof(protocols));
+
+	// Enable auto-redirects
+	DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
+	WinHttpSetOption(hSession, WINHTTP_OPTION_REDIRECT_POLICY, &redirect, sizeof(redirect));
 
 	HINTERNET hConnect = WinHttpConnect(hSession, host, uc.nPort, 0);
 	if (!hConnect) {
@@ -91,15 +106,31 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 		return false;
 	}
 
-	HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path, nullptr,WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
+	DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
 
+	HINTERNET hRequest = WinHttpOpenRequest(
+		hConnect,
+		L"GET",
+		path,
+		nullptr,
+		WINHTTP_NO_REFERER,
+		WINHTTP_DEFAULT_ACCEPT_TYPES,
+		flags
+	);
 	if (!hRequest) {
 		WinHttpCloseHandle(hConnect);
 		WinHttpCloseHandle(hSession);
 		return false;
 	}
 
-	BOOL sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0);
+	BOOL sent = WinHttpSendRequest(hRequest,
+		WINHTTP_NO_ADDITIONAL_HEADERS,
+		0,
+		nullptr,
+		0,
+		0,
+		0
+	);
 
 	if (!sent || !WinHttpReceiveResponse(hRequest, nullptr)) {
 		WinHttpCloseHandle(hRequest);
@@ -108,7 +139,7 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 		return false;
 	}
 
-	std::ofstream out(outputPath, std::ios::binary);
+	std::ofstream out(outputPath, std::ios::binary | std::ios::trunc);
 	if (!out.is_open()) {
 		WinHttpCloseHandle(hRequest);
 		WinHttpCloseHandle(hConnect);
@@ -116,11 +147,11 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 		return false;
 	}
 
-	DWORD bytes = 0;
 	BYTE buffer[8192];
+	DWORD bytesRead = 0;
 
-	while (WinHttpReadData(hRequest, buffer, sizeof(buffer), &bytes) && bytes > 0)
-		out.write(reinterpret_cast<char*>(buffer), bytes);
+	while (WinHttpReadData(hRequest, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0)
+		out.write(reinterpret_cast<char*>(buffer), bytesRead);
 
 	out.close();
 
@@ -130,6 +161,7 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 
 	return true;
 }
+
 
 void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
