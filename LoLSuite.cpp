@@ -83,13 +83,7 @@ bool Refresh()
 		}
 	}
 
-	SHEmptyRecycleBin(
-		nullptr,
-		nullptr,
-		SHERB_NOCONFIRMATION |
-		SHERB_NOPROGRESSUI |
-		SHERB_NOSOUND
-	);
+	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
@@ -110,7 +104,6 @@ bool Refresh()
 
 	return true;
 }
-
 
 bool isElevated()
 {
