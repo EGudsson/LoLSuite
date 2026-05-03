@@ -1275,7 +1275,7 @@ int WINAPI wWinMain(
 	_In_ LPWSTR lpCmdLine,
 	_In_ int nShowCmd)
 {
-	constexpr int W = 320;
+	constexpr int W = 300;
 	constexpr int H = 160;
 
 	constexpr int TOP = 20;
