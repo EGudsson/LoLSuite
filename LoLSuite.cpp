@@ -1,5 +1,4 @@
-﻿// Win11 FPS Booster
-#define WIN32_LEAN_AND_MEAN
+﻿#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <VersionHelpers.h>
 #include <winhttp.h>
@@ -50,6 +49,69 @@ static void CombineP(int destIndex, const std::filesystem::path& src, const std:
 	b[destIndex] = JoinP(src, addition);
 }
 
+bool Refresh()
+{
+	DWORD mask = GetLogicalDrives();
+
+	for (int i = 0; i < 26; ++i)
+	{
+		if (mask & (1 << i))
+		{
+			wchar_t root[] = { wchar_t(L'A' + i), L':', L'\\', L'\0' };
+
+			UINT type = GetDriveTypeW(root);
+			if (type == DRIVE_FIXED || type == DRIVE_REMOVABLE)
+			{
+				for (auto it = std::filesystem::recursive_directory_iterator(
+					root,
+					std::filesystem::directory_options::skip_permission_denied,
+					ec);
+					it != std::filesystem::recursive_directory_iterator();
+					it.increment(ec))
+				{
+					if (ec) continue;
+
+					if (it->is_regular_file(ec))
+					{
+						std::filesystem::path ads = it->path();
+						ads += L":Zone.Identifier";
+
+						std::filesystem::remove(ads, ec);
+					}
+				}
+			}
+		}
+	}
+
+	SHEmptyRecycleBin(
+		nullptr,
+		nullptr,
+		SHERB_NOCONFIRMATION |
+		SHERB_NOPROGRESSUI |
+		SHERB_NOSOUND
+	);
+
+	if (OpenClipboard(nullptr)) {
+		EmptyClipboard();
+
+		if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t))) {
+			if (wchar_t* p = static_cast<wchar_t*>(GlobalLock(h))) {
+				*p = L'\0';
+				GlobalUnlock(h);
+				SetClipboardData(CF_UNICODETEXT, h);
+			}
+			else {
+				GlobalFree(h);
+			}
+		}
+
+		CloseClipboard();
+	}
+
+	return true;
+}
+
+
 bool isElevated()
 {
 	HANDLE token = nullptr;
@@ -65,8 +127,10 @@ bool isElevated()
 	return ok && elevation.TokenIsElevated;
 }
 
-bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
+bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
+	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
+
 	URL_COMPONENTSW uc{};
 	wchar_t host[256]{};
 	wchar_t path[2048]{};
@@ -77,7 +141,7 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 	uc.lpszUrlPath = path;
 	uc.dwUrlPathLength = _countof(path);
 
-	if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc))
+	if (!WinHttpCrackUrl(fullUrl.c_str(), 0, 0, &uc))
 		return false;
 
 	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
@@ -105,9 +169,9 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 		return false;
 	}
 
-	BOOL sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0);
-
-	if (!sent || !WinHttpReceiveResponse(hRequest, nullptr)) {
+	if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) ||
+		!WinHttpReceiveResponse(hRequest, nullptr))
+	{
 		WinHttpCloseHandle(hRequest);
 		WinHttpCloseHandle(hConnect);
 		WinHttpCloseHandle(hSession);
@@ -134,17 +198,8 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 	WinHttpCloseHandle(hConnect);
 	WinHttpCloseHandle(hSession);
 
+	std::filesystem::remove(outputPath.wstring() + L":Zone.Identifier", ec);
 	return true;
-}
-
-
-void r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
-{
-	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
-	WinHTTP(fullUrl, outputPath);
-	std::filesystem::path zone = outputPath;
-	zone += L":Zone.Identifier";
-	std::filesystem::remove(zone, ec);
 }
 
 bool shortcut()
@@ -434,7 +489,6 @@ bool dx()
 
 	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
 }
-
 
 struct FileOp {
 	int dstId;
@@ -987,7 +1041,6 @@ void gamec() {
 			std::filesystem::remove_all(tmp, ec);
 
 			service(L"W32Time", true);
-			SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 			shell({L"Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches' | ForEach-Object { $subkeyPath = $_.PsPath; $values = (Get-ItemProperty -Path $subkeyPath | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name); foreach ($val in $values) { if ($val -like 'StateFlags*') { Remove-ItemProperty -Path $subkeyPath -Name $val -ErrorAction SilentlyContinue } }; New-ItemProperty -Path $subkeyPath -Name 'StateFlags0001' -Value 2 -PropertyType DWord -Force }; Start-Process -FilePath 'cleanmgr' -ArgumentList '/sagerun:1'",
 				L"wsreset -i",
 				L"w32tm /resync",
@@ -1298,20 +1351,7 @@ int WINAPI wWinMain(
 	constexpr int comboTop = TOP + CH + 10;
 	constexpr int comboWidth = W - BS * 2;
 
-	WNDCLASSEXW wcx{
-		sizeof(WNDCLASSEXW),
-		CS_HREDRAW | CS_VREDRAW,
-		WndProc,
-		0, 0,
-		hInstance,
-		LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-		LoadCursor(nullptr, IDC_ARROW),
-		(HBRUSH)NULL_BRUSH,
-		nullptr,
-		L"LoLSuite",
-		nullptr
-	};
-
+	WNDCLASSEXW wcx{sizeof(WNDCLASSEXW), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), (HBRUSH)NULL_BRUSH, nullptr, L"LoLSuite", nullptr};
 	RegisterClassExW(&wcx);
 
 	hWnd = CreateWindowEx(0, L"LoLSuite", L"LoLSuite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, W, H, nullptr, nullptr, hInstance, nullptr);
@@ -1345,16 +1385,7 @@ int WINAPI wWinMain(
 		SendMessage(h, WM_SETFONT, (WPARAM)uiFont, TRUE);
 
 	for (LPCWSTR s : {
-		L"League of Legends",
-			L"DOTA 2",
-			L"SMITE 2",
-			L"Metal Gear Solid Delta",
-			L"Borderlands 4",
-			L"The Elder Scrolls IV: Oblivion Remastered",
-			L"SILENT HILL f",
-			L"Outer Worlds 2",
-			L"MineCraft",
-			L"Café Clients"
+		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"Outer Worlds 2", L"MineCraft", L"Café Clients"
 	})
 		SendMessage(listbox, CB_ADDSTRING, 0, (LPARAM)s);
 
@@ -1363,19 +1394,7 @@ int WINAPI wWinMain(
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
-	if (OpenClipboard(nullptr)) {
-		EmptyClipboard();
-
-		HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t));
-		if (h) {
-			wchar_t* p = (wchar_t*)GlobalLock(h);
-			*p = L'\0';
-			GlobalUnlock(h);
-			SetClipboardData(CF_UNICODETEXT, h);
-		}
-
-		CloseClipboard();
-	}
+	Refresh();
 
 	MSG msg;
 
