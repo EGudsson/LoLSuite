@@ -80,23 +80,13 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 	if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc))
 		return false;
 
-	HINTERNET hSession = WinHttpOpen(
-		L"LoLSuite/1.0",
-		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-		WINHTTP_NO_PROXY_NAME,
-		WINHTTP_NO_PROXY_BYPASS,
-		0
-	);
+	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!hSession)
 		return false;
 
-	// Enable modern TLS
-	DWORD protocols =
-		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 |
-		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
+	DWORD protocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
 	WinHttpSetOption(hSession, WINHTTP_OPTION_SECURE_PROTOCOLS, &protocols, sizeof(protocols));
 
-	// Enable auto-redirects
 	DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
 	WinHttpSetOption(hSession, WINHTTP_OPTION_REDIRECT_POLICY, &redirect, sizeof(redirect));
 
@@ -108,29 +98,14 @@ bool WinHTTP(const std::wstring& url, const std::filesystem::path& outputPath)
 
 	DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
 
-	HINTERNET hRequest = WinHttpOpenRequest(
-		hConnect,
-		L"GET",
-		path,
-		nullptr,
-		WINHTTP_NO_REFERER,
-		WINHTTP_DEFAULT_ACCEPT_TYPES,
-		flags
-	);
+	HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
 	if (!hRequest) {
 		WinHttpCloseHandle(hConnect);
 		WinHttpCloseHandle(hSession);
 		return false;
 	}
 
-	BOOL sent = WinHttpSendRequest(hRequest,
-		WINHTTP_NO_ADDITIONAL_HEADERS,
-		0,
-		nullptr,
-		0,
-		0,
-		0
-	);
+	BOOL sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0);
 
 	if (!sent || !WinHttpReceiveResponse(hRequest, nullptr)) {
 		WinHttpCloseHandle(hRequest);
@@ -1308,7 +1283,7 @@ int WINAPI wWinMain(
 	_In_ int nShowCmd)
 {
 	constexpr int W = 300;
-	constexpr int H = 160;
+	constexpr int H = 130;
 
 	constexpr int TOP = 20;
 	constexpr int CH = 30;
