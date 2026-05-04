@@ -483,25 +483,20 @@ bool Refresh()
 
 	wchar_t buf[MAX_PATH + 1];
 
-	if (GetTempPathW(MAX_PATH + 1, buf))
+	if (GetTempPath(MAX_PATH + 1, buf))
 		rm(buf);
 
-	if (GetWindowsDirectoryW(buf, MAX_PATH + 1)) {
+	if (GetWindowsDirectory(buf, MAX_PATH + 1)) {
 		rm(std::filesystem::path(buf) / L"Temp");
 		rm(std::filesystem::path(buf) / L"Prefetch");
 	}
-
-	// APPDATA
-	{
 		wchar_t* appdata = nullptr;
 		size_t len = 0;
 		if (_wdupenv_s(&appdata, &len, L"APPDATA") == 0 && appdata) {
 			rm(std::filesystem::path(appdata) / L"Microsoft\\Windows\\Recent");
 			free(appdata);
 		}
-	}
 
-	// .log files in temp
 	ec.clear();
 	for (auto& p : std::filesystem::recursive_directory_iterator(
 		std::filesystem::temp_directory_path(),
@@ -511,9 +506,19 @@ bool Refresh()
 			rmf(p.path());
 	}
 
-	rm(L"C:\\ProgramData\\Microsoft\\Windows\\WER");
+	PWSTR programData = nullptr;
+	if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramData, 0, nullptr, &programData)))
+	{
+		std::filesystem::path wer = std::filesystem::path(programData)
+			/ L"Microsoft"
+			/ L"Windows"
+			/ L"WER";
 
-	// LOCALAPPDATA
+		CoTaskMemFree(programData);
+
+		rm(wer.c_str());
+	}
+
 	wchar_t lad[MAX_PATH + 1];
 	if (SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, lad) == S_OK) {
 		rmf(std::filesystem::path(lad) / L"IconCache.db");
