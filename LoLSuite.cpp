@@ -1387,23 +1387,6 @@ int WINAPI wWinMain(
 	WNDCLASSEXW wcx{sizeof(WNDCLASSEXW), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), (HBRUSH)NULL_BRUSH, nullptr, L"LoLSuite", nullptr};
 	RegisterClassExW(&wcx);
 
-
-	constexpr int W = 300;
-	constexpr int H = 130;
-
-	constexpr int TOP = 20;
-	constexpr int CH = 30;
-
-	constexpr int BW = 63;
-	constexpr int BS = 15;
-
-	constexpr int xPatch = BS;
-	constexpr int xRestore = xPatch + BW + BS;
-
-	constexpr int comboLeft = BS;
-	constexpr int comboTop = TOP + CH + 10;
-	constexpr int comboWidth = W - BS * 2;
-
 	hWnd = CreateWindowEx(
 		0, L"LoLSuite", L"LoLSuite",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
