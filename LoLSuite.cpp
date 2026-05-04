@@ -451,40 +451,16 @@ bool dx()
 	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
 }
 
-void CleanZoneIdentifiers(const std::filesystem::path& root)
-{
-	for (auto it = std::filesystem::recursive_directory_iterator(
-		root,
-		std::filesystem::directory_options::skip_permission_denied,
-		ec);
-		it != std::filesystem::recursive_directory_iterator();
-		it.increment(ec))
-	{
-		if (ec) {
-			ec.clear();
-			continue;
-		}
-
-		if (it->is_regular_file(ec))
-		{
-			std::filesystem::path ads = it->path();
-			ads += L":Zone.Identifier";
-
-			ec.clear();
-			std::filesystem::remove(ads, ec);
-		}
-	}
-}
-
 bool Refresh()
 {
-	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+	SHEmptyRecycleBin(nullptr, nullptr,
+		SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
+	// Clipboard wipe
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
-
 		if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t))) {
-			if (wchar_t* p = static_cast<wchar_t*>(GlobalLock(h))) {
+			if (auto p = static_cast<wchar_t*>(GlobalLock(h))) {
 				*p = L'\0';
 				GlobalUnlock(h);
 				SetClipboardData(CF_UNICODETEXT, h);
@@ -493,8 +469,73 @@ bool Refresh()
 				GlobalFree(h);
 			}
 		}
-
 		CloseClipboard();
+	}
+
+	auto rm = [&](auto&& path) {
+		ec.clear();
+		std::filesystem::remove_all(path, ec);
+		};
+
+	auto rmf = [&](auto&& path) {
+		ec.clear();
+		std::filesystem::remove(path, ec);
+		};
+
+	wchar_t buf[MAX_PATH + 1];
+
+	if (GetTempPathW(MAX_PATH + 1, buf))
+		rm(buf);
+
+	if (GetWindowsDirectoryW(buf, MAX_PATH + 1))
+		rm(std::filesystem::path(buf) / L"Temp");
+
+	rm(L"C:\\Windows\\Prefetch");
+
+	// APPDATA via _wdupenv_s
+	{
+		wchar_t* appdata = nullptr;
+		size_t len = 0;
+		if (_wdupenv_s(&appdata, &len, L"APPDATA") == 0 && appdata) {
+			rm(std::filesystem::path(appdata) / L"Microsoft\\Windows\\Recent");
+			free(appdata);
+		}
+	}
+
+	rmf(L"%LOCALAPPDATA%\\IconCache.db");
+
+	// .log files in temp
+	ec.clear();
+	for (auto& p : std::filesystem::recursive_directory_iterator(
+		std::filesystem::temp_directory_path(),
+		std::filesystem::directory_options::skip_permission_denied, ec))
+	{
+		if (p.is_regular_file(ec) && p.path().extension() == L".log")
+			rmf(p.path());
+	}
+
+	rm(L"C:\\ProgramData\\Microsoft\\Windows\\WER");
+
+	// Explorer caches
+	wchar_t lad[MAX_PATH + 1];
+	if (SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, lad) == S_OK) {
+		std::filesystem::path explorer = std::filesystem::path(lad) / L"Microsoft\\Windows\\Explorer";
+
+		constexpr const wchar_t* patterns[] = {
+			L"thumbcache_*.db",
+			L"iconcache_*.db",
+			L"ExplorerStartupLog*.etl"
+		};
+
+		for (auto pat : patterns) {
+			WIN32_FIND_DATAW fd;
+			HANDLE h = FindFirstFileW((explorer / pat).c_str(), &fd);
+			if (h != INVALID_HANDLE_VALUE) {
+				do rmf(explorer / fd.cFileName);
+				while (FindNextFileW(h, &fd));
+				FindClose(h);
+			}
+		}
 	}
 
 	return true;
@@ -521,7 +562,24 @@ struct GameConfig {
 void Game(const GameConfig& config, bool restore)
 {
 	folder(config.baseDir);
-	CleanZoneIdentifiers(config.baseDir);
+
+	// Unblock
+	for (auto it = std::filesystem::recursive_directory_iterator(config.baseDir, std::filesystem::directory_options::skip_permission_denied, ec); it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
+	{
+		if (ec) {
+			ec.clear();
+			continue;
+		}
+
+		if (it->is_regular_file(ec))
+		{
+			std::filesystem::path ads = it->path();
+			ads += L":Zone.Identifier";
+
+			ec.clear();
+			std::filesystem::remove(ads, ec);
+		}
+	}
 
 	for (auto& s : config.preAppends)
 		AppendP(0, s);
@@ -551,7 +609,6 @@ void Game(const GameConfig& config, bool restore)
 	}
 
 	runEx(config.steamUrl, { .wait = false, .params = L"" });
-
 }
 
 static GameConfig LoL() {
@@ -1115,27 +1172,6 @@ void gamec() {
 			shell(uninstall);
 			shell(install);
 
-			WCHAR localAppData[MAX_PATH + 1];
-			if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) == S_OK) {
-				std::filesystem::path explorerPath = std::filesystem::path(localAppData) / L"Microsoft\\Windows\\Explorer";
-				constexpr const wchar_t* patterns[] = {
-					L"thumbcache_*.db",
-					L"iconcache_*.db",
-					L"ExplorerStartupLog*.etl"
-				};
-				for (auto pattern : patterns) {
-					WIN32_FIND_DATA data;
-					HANDLE hFind = FindFirstFile((explorerPath / pattern).c_str(), &data);
-
-					if (hFind != INVALID_HANDLE_VALUE) {
-						do {
-							std::filesystem::remove(explorerPath / data.cFileName);
-						} while (FindNextFile(hFind, &data));
-
-						FindClose(hFind);
-					}
-				}
-			}
 			HMODULE dns = LoadLibrary(L"dnsapi.dll");
 			if (dns) {
 				using Fn = DWORD(WINAPI*)(PCWSTR);
