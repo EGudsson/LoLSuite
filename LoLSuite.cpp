@@ -915,16 +915,20 @@ void gamec() {
 			std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
 			ec.clear();
 			std::filesystem::create_directory(tmp, ec);
-			if (x64())
-			{
-				std::filesystem::path file_x64 = tmp / "vcredist_x64.exe";
-				r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE", file_x64.c_str(), true);
-				runEx(file_x64.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
-			}
+			auto install = [&](bool is64)
+				{
+					const wchar_t* url = is64
+						? L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE"
+						: L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE";
 
-				std::filesystem::path file_x86 = tmp / "vcredist_x86.exe";
-				r2(L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE", file_x86.c_str(), true);
-				runEx(file_x86.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });			
+					const auto file = tmp / (is64 ? L"vcredist_x64.exe" : L"vcredist_x86.exe");
+
+					r2(url, file.c_str(), true);
+					runEx(file.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
+				};
+
+			install(false);
+			if (x64()) install(true);
 
 			if (!dx() && x64())
 			{
