@@ -456,7 +456,6 @@ bool Refresh()
 	SHEmptyRecycleBin(nullptr, nullptr,
 		SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
-	// Clipboard wipe
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
 		if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t))) {
@@ -487,12 +486,12 @@ bool Refresh()
 	if (GetTempPathW(MAX_PATH + 1, buf))
 		rm(buf);
 
-	if (GetWindowsDirectoryW(buf, MAX_PATH + 1))
+	if (GetWindowsDirectoryW(buf, MAX_PATH + 1)) {
 		rm(std::filesystem::path(buf) / L"Temp");
+		rm(std::filesystem::path(buf) / L"Prefetch");
+	}
 
-	rm(L"C:\\Windows\\Prefetch");
-
-	// APPDATA via _wdupenv_s
+	// APPDATA
 	{
 		wchar_t* appdata = nullptr;
 		size_t len = 0;
@@ -501,8 +500,6 @@ bool Refresh()
 			free(appdata);
 		}
 	}
-
-	rmf(L"%LOCALAPPDATA%\\IconCache.db");
 
 	// .log files in temp
 	ec.clear();
@@ -516,9 +513,11 @@ bool Refresh()
 
 	rm(L"C:\\ProgramData\\Microsoft\\Windows\\WER");
 
-	// Explorer caches
+	// LOCALAPPDATA
 	wchar_t lad[MAX_PATH + 1];
 	if (SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, lad) == S_OK) {
+		rmf(std::filesystem::path(lad) / L"IconCache.db");
+
 		std::filesystem::path explorer = std::filesystem::path(lad) / L"Microsoft\\Windows\\Explorer";
 
 		constexpr const wchar_t* patterns[] = {
