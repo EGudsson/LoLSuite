@@ -1244,30 +1244,6 @@ void gamec() {
 		}
 	}
 
-void RunAsyncPatch(int index, bool rest)
-{
-	if (g_isBusy.exchange(true))
-		return;
-
-	EnableWindow(patch, FALSE);
-	EnableWindow(restore, FALSE);
-	EnableWindow(listbox, FALSE);
-
-	std::thread([index, rest]() {
-		static const std::vector<std::wstring> gameKeys = { L"leagueoflegends", L"dota2", L"smite2", L"mgs", L"blands4", L"oblivionr", L"silenthillf", L"outworlds2", L"minecraft" };
-		if (index >= 0 && index < (int)gameKeys.size()) {
-			manage(gameKeys[index], rest);
-			return;
-		}
-
-		if (index == 9) {
-			gamec();
-			return;
-		}
-		PostMessage(hWnd, WM_APP + 1, 0, 0);
-		}).detach();
-}
-
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch (msg)
