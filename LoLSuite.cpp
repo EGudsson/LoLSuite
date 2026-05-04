@@ -1236,13 +1236,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 {
 	switch (msg)
 	{
-	case WM_APP + 1:
-		g_isBusy = false;
-		EnableWindow(patch, TRUE);
-		EnableWindow(restore, TRUE);
-		EnableWindow(listbox, TRUE);
-		SetFocus(listbox);
-		return 0;
 
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
@@ -1252,12 +1245,18 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		HDC dc = (HDC)wParam;
 		SetBkMode(dc, TRANSPARENT);
 		SetTextColor(dc, RGB(32, 32, 32));
-		return (LRESULT)CreateSolidBrush(RGB(180, 210, 255));
+		static HBRUSH hBrush = CreateSolidBrush(RGB(180, 210, 255));
+		return (LRESULT)hBrush;
+
 	}
 
 	case WM_DPICHANGED:
 	{
 		SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
+		auto r = (RECT*)lParam;
+		SetWindowPos(hWnd, nullptr, r->left, r->top,
+			r->right - r->left, r->bottom - r->top,
+			SWP_NOZORDER | SWP_NOACTIVATE);
 		return 0;
 	}
 
@@ -1335,6 +1334,14 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		}
 		break;
 	}
+
+	case WM_APP + 1:
+		g_isBusy = false;
+		EnableWindow(patch, TRUE);
+		EnableWindow(restore, TRUE);
+		EnableWindow(listbox, TRUE);
+		SetFocus(listbox);
+		return 0;
 
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
