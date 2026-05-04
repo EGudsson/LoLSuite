@@ -1357,12 +1357,37 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
+struct Layout {
+	static constexpr int W = 300;
+	static constexpr int H = 130;
+
+	static constexpr int TOP = 20;
+	static constexpr int CH = 30;
+
+	static constexpr int BW = 63;
+	static constexpr int BS = 15;
+
+	// Derived
+	static constexpr int xPatch = BS;
+	static constexpr int xRestore = xPatch + BW + BS;
+
+	static constexpr int comboLeft = BS;
+	static constexpr int comboTop = TOP + CH + 10;
+	static constexpr int comboWidth = W - BS * 2;
+};
+
+
 int WINAPI wWinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPWSTR lpCmdLine,
 	_In_ int nShowCmd)
 {
+
+	WNDCLASSEXW wcx{sizeof(WNDCLASSEXW), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), (HBRUSH)NULL_BRUSH, nullptr, L"LoLSuite", nullptr};
+	RegisterClassExW(&wcx);
+
+
 	constexpr int W = 300;
 	constexpr int H = 130;
 
@@ -1379,35 +1404,39 @@ int WINAPI wWinMain(
 	constexpr int comboTop = TOP + CH + 10;
 	constexpr int comboWidth = W - BS * 2;
 
-	WNDCLASSEXW wcx{sizeof(WNDCLASSEXW), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0, hInstance, LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)), LoadCursor(nullptr, IDC_ARROW), (HBRUSH)NULL_BRUSH, nullptr, L"LoLSuite", nullptr};
-	RegisterClassExW(&wcx);
-
-	hWnd = CreateWindowEx(0, L"LoLSuite", L"LoLSuite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, W, H, nullptr, nullptr, hInstance, nullptr);
-
-	CoInitialize(nullptr);
-	shortcut();
-	CoUninitialize();
+	hWnd = CreateWindowEx(
+		0, L"LoLSuite", L"LoLSuite",
+		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		Layout::W, Layout::H,
+		nullptr, nullptr, hInstance, nullptr
+	);
 
 	patch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
-		xPatch, TOP, BW, CH,
+		Layout::xPatch, Layout::TOP, Layout::BW, Layout::CH,
 		hWnd, HMENU(1), hInstance, nullptr
 	);
 
 	restore = CreateWindowEx(
 		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
-		xRestore, TOP, BW, CH,
+		Layout::xRestore, Layout::TOP, Layout::BW, Layout::CH,
 		hWnd, HMENU(2), hInstance, nullptr
 	);
 
 	listbox = CreateWindowEx(
 		0, WC_COMBOBOX, nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-		comboLeft, comboTop, comboWidth, 210,
+		Layout::comboLeft, Layout::comboTop, Layout::comboWidth, 210,
 		hWnd, HMENU(3), hInstance, nullptr
 	);
+
+
+	CoInitialize(nullptr);
+	shortcut();
+	CoUninitialize();
 
 	for (HWND h : {patch, restore, listbox})
 		SendMessage(h, WM_SETFONT, (WPARAM)uiFont, TRUE);
