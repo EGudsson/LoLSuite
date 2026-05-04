@@ -49,62 +49,6 @@ static void CombineP(int destIndex, const std::filesystem::path& src, const std:
 	b[destIndex] = JoinP(src, addition);
 }
 
-bool Refresh()
-{
-	DWORD mask = GetLogicalDrives();
-
-	for (int i = 0; i < 26; ++i)
-	{
-		if (mask & (1 << i))
-		{
-			wchar_t root[] = { wchar_t(L'A' + i), L':', L'\\', L'\0' };
-
-			UINT type = GetDriveTypeW(root);
-			if (type == DRIVE_FIXED || type == DRIVE_REMOVABLE)
-			{
-				for (auto it = std::filesystem::recursive_directory_iterator(
-					root,
-					std::filesystem::directory_options::skip_permission_denied,
-					ec);
-					it != std::filesystem::recursive_directory_iterator();
-					it.increment(ec))
-				{
-					if (ec) continue;
-
-					if (it->is_regular_file(ec))
-					{
-						std::filesystem::path ads = it->path();
-						ads += L":Zone.Identifier";
-
-						std::filesystem::remove(ads, ec);
-					}
-				}
-			}
-		}
-	}
-
-	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
-
-	if (OpenClipboard(nullptr)) {
-		EmptyClipboard();
-
-		if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t))) {
-			if (wchar_t* p = static_cast<wchar_t*>(GlobalLock(h))) {
-				*p = L'\0';
-				GlobalUnlock(h);
-				SetClipboardData(CF_UNICODETEXT, h);
-			}
-			else {
-				GlobalFree(h);
-			}
-		}
-
-		CloseClipboard();
-	}
-
-	return true;
-}
-
 bool isElevated()
 {
 	HANDLE token = nullptr;
@@ -122,7 +66,9 @@ bool isElevated()
 
 bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
-	std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
+	const std::wstring fullUrl = skipR2
+		? url
+		: (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
 
 	URL_COMPONENTSW uc{};
 	wchar_t host[256]{};
@@ -137,11 +83,22 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 	if (!WinHttpCrackUrl(fullUrl.c_str(), 0, 0, &uc))
 		return false;
 
-	HINTERNET hSession = WinHttpOpen(L"LoLSuite/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+	if (path[0] == L'\0')
+		wcscpy_s(path, L"/");
+
+	HINTERNET hSession = WinHttpOpen(
+		L"LoLSuite/1.0",
+		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+		WINHTTP_NO_PROXY_NAME,
+		WINHTTP_NO_PROXY_BYPASS,
+		0
+	);
 	if (!hSession)
 		return false;
 
-	DWORD protocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
+	DWORD protocols =
+		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 |
+		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
 	WinHttpSetOption(hSession, WINHTTP_OPTION_SECURE_PROTOCOLS, &protocols, sizeof(protocols));
 
 	DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
@@ -153,15 +110,27 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 		return false;
 	}
 
-	HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
+	const DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
+
+	HINTERNET hRequest = WinHttpOpenRequest(
+		hConnect,
+		L"GET",
+		path,
+		nullptr,
+		WINHTTP_NO_REFERER,
+		WINHTTP_DEFAULT_ACCEPT_TYPES,
+		flags
+	);
 	if (!hRequest) {
 		WinHttpCloseHandle(hConnect);
 		WinHttpCloseHandle(hSession);
 		return false;
 	}
 
-	if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hRequest, nullptr))
-	{
+	BOOL sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0);
+	BOOL recv = sent && WinHttpReceiveResponse(hRequest, nullptr);
+
+	if (!recv) {
 		WinHttpCloseHandle(hRequest);
 		WinHttpCloseHandle(hConnect);
 		WinHttpCloseHandle(hSession);
@@ -187,10 +156,12 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 	WinHttpCloseHandle(hRequest);
 	WinHttpCloseHandle(hConnect);
 	WinHttpCloseHandle(hSession);
-
+	ec.clear();
 	std::filesystem::remove(outputPath.wstring() + L":Zone.Identifier", ec);
+
 	return true;
 }
+
 
 bool shortcut()
 {
@@ -480,6 +451,56 @@ bool dx()
 	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
 }
 
+void CleanZoneIdentifiers(const std::filesystem::path& root)
+{
+	for (auto it = std::filesystem::recursive_directory_iterator(
+		root,
+		std::filesystem::directory_options::skip_permission_denied,
+		ec);
+		it != std::filesystem::recursive_directory_iterator();
+		it.increment(ec))
+	{
+		if (ec) {
+			ec.clear();
+			continue;
+		}
+
+		if (it->is_regular_file(ec))
+		{
+			std::filesystem::path ads = it->path();
+			ads += L":Zone.Identifier";
+
+			ec.clear();
+			std::filesystem::remove(ads, ec);
+		}
+	}
+}
+
+
+bool Refresh()
+{
+	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+
+	if (OpenClipboard(nullptr)) {
+		EmptyClipboard();
+
+		if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, sizeof(wchar_t))) {
+			if (wchar_t* p = static_cast<wchar_t*>(GlobalLock(h))) {
+				*p = L'\0';
+				GlobalUnlock(h);
+				SetClipboardData(CF_UNICODETEXT, h);
+			}
+			else {
+				GlobalFree(h);
+			}
+		}
+
+		CloseClipboard();
+	}
+
+	return true;
+}
+
 struct FileOp {
 	int dstId;
 	int srcId;
@@ -501,6 +522,7 @@ struct GameConfig {
 void Game(const GameConfig& config, bool restore)
 {
 	folder(config.baseDir);
+	CleanZoneIdentifiers(config.baseDir);
 
 	for (auto& s : config.preAppends)
 		AppendP(0, s);
@@ -517,6 +539,7 @@ void Game(const GameConfig& config, bool restore)
 		{
 			if (op.restorePath.empty())
 			{
+				ec.clear();
 				std::filesystem::remove(b[op.dstId], ec);
 				continue;
 			}
@@ -832,6 +855,7 @@ void gamec() {
 		{
 			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
 			std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
+			ec.clear();
 			std::filesystem::create_directory(tmp, ec);
 			if (x64())
 			{
@@ -1028,6 +1052,7 @@ void gamec() {
 				if (allFilesPresent)
 					runEx(b[baseIndex + 63], { .wait = true, .params = L"/silent" });
 			}
+			ec.clear();
 			std::filesystem::remove_all(tmp, ec);
 
 			service(L"W32Time", true);
