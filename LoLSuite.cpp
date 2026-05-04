@@ -915,7 +915,7 @@ void gamec() {
 			std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
 			ec.clear();
 			std::filesystem::create_directory(tmp, ec);
-			auto install = [&](bool is64)
+			auto vc = [&](bool is64)
 				{
 					const wchar_t* url = is64
 						? L"https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE"
@@ -927,8 +927,8 @@ void gamec() {
 					runEx(file.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
 				};
 
-			install(false);
-			if (x64()) install(true);
+			vc(false);
+			if (x64()) vc(true);
 
 			if (!dx() && x64())
 			{
