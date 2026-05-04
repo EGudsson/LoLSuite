@@ -18,34 +18,22 @@ static std::atomic<bool> g_isBusy = false;
 int cb_index = 0;
 std::vector<std::wstring> b(159);
 HWND hWnd, patch, restore, listbox;
+HFONT uiFont = CreateFont(-MulDiv(16, GetDpiForWindow(hWnd), 96), 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI Variable");
 
-HFONT uiFont = CreateFont(
-	-MulDiv(16, GetDpiForWindow(hWnd), 96),
-	0, 0, 0,
-	FW_MEDIUM,
-	FALSE, FALSE, FALSE,
-	DEFAULT_CHARSET,
-	OUT_DEFAULT_PRECIS,
-	CLIP_DEFAULT_PRECIS,
-	CLEARTYPE_QUALITY,
-	VARIABLE_PITCH | FF_SWISS,
-	L"Segoe UI Variable"
-);
-
-static std::wstring JoinP(const std::wstring& base, const std::wstring& addition) {
+static std::wstring Join(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
 }
 
-static void AppendP(int index, const std::wstring& addition) {
-	b[index] = JoinP(b[index], addition);
+static void Append(int index, const std::wstring& addition) {
+	b[index] = Join(b[index], addition);
 }
 
-static void CombineP(int destIndex, int srcIndex, const std::wstring& addition) {
-	b[destIndex] = JoinP(b[srcIndex], addition);
+static void Combine(int destIndex, int srcIndex, const std::wstring& addition) {
+	b[destIndex] = Join(b[srcIndex], addition);
 }
 
 static void CombineP(int destIndex, const std::filesystem::path& src, const std::wstring& addition) {
-	b[destIndex] = JoinP(src, addition);
+	b[destIndex] = Join(src, addition);
 }
 
 bool isElevated()
@@ -580,13 +568,13 @@ void Game(const GameConfig& config, bool restore)
 	}
 
 	for (auto& s : config.preAppends)
-		AppendP(0, s);
+		Append(0, s);
 
 	for (const auto& proc : config.processes)
 		pkill(proc);
 
 	for (const auto& [dst, src, rel] : config.cpaths)
-		CombineP(dst, src, rel);
+		Combine(dst, src, rel);
 
 	for (const auto& op : config.fileOps)
 	{
@@ -1367,7 +1355,6 @@ struct Layout {
 	static constexpr int BW = 63;
 	static constexpr int BS = 15;
 
-	// Derived
 	static constexpr int xPatch = BS;
 	static constexpr int xRestore = xPatch + BW + BS;
 
@@ -1415,7 +1402,6 @@ int WINAPI wWinMain(
 		Layout::comboLeft, Layout::comboTop, Layout::comboWidth, 210,
 		hWnd, HMENU(3), hInstance, nullptr
 	);
-
 
 	CoInitialize(nullptr);
 	shortcut();
