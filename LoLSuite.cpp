@@ -12,7 +12,6 @@
 #include <fstream>
 #include <thread>
 #include "resource.h"
-#define WIN32_LEAN_AND_MEAN
 
 std::error_code ec;
 static std::atomic<bool> g_isBusy = false;
