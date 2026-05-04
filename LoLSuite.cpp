@@ -94,9 +94,7 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 	if (!hSession)
 		return false;
 
-	DWORD protocols =
-		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 |
-		WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
+	DWORD protocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_3;
 	WinHttpSetOption(hSession, WINHTTP_OPTION_SECURE_PROTOCOLS, &protocols, sizeof(protocols));
 
 	DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
@@ -108,8 +106,6 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 		return false;
 	}
 
-	const DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
-
 	HINTERNET hRequest = WinHttpOpenRequest(
 		hConnect,
 		L"GET",
@@ -117,7 +113,7 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 		nullptr,
 		WINHTTP_NO_REFERER,
 		WINHTTP_DEFAULT_ACCEPT_TYPES,
-		flags
+		(uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0
 	);
 	if (!hRequest) {
 		WinHttpCloseHandle(hConnect);
