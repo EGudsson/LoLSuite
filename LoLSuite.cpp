@@ -1291,6 +1291,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_COMMAND:
 	{
 		const UINT id = LOWORD(wParam);
+
 		if (HIWORD(wParam) == CBN_SELCHANGE)
 			cb_index = (int)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
 
@@ -1303,8 +1304,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			EnableWindow(restore, FALSE);
 			EnableWindow(listbox, FALSE);
 
-			int index = cb_index;
-			bool rest = (id == 2);
+			const int index = cb_index;
+			const bool rest = (id == 2);
 
 			std::thread([index, rest]() {
 
@@ -1314,24 +1315,26 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 					L"outworlds2", L"minecraft"
 				};
 
-				if (index >= 0 && index < (int)gameKeys.size()) {
+				if (index >= 0 && index < (int)gameKeys.size())
+				{
 					manage(gameKeys[index], rest);
 				}
-				else if (index == 9) {
+				if (index == 9)
+				{
 					gamec();
 				}
+
 				}).detach();
 
 			PostMessage(hWnd, WM_APP + 1, 0, 0);
 			return 0;
 		}
-
 		if (id == IDM_EXIT) {
 			SendMessage(hWnd, WM_CLOSE, 0, 0);
 			return 0;
 		}
+		break;
 	}
-	break;
 
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
