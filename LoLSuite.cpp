@@ -32,7 +32,8 @@ static void Combine(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = Join(b[srcIndex], addition);
 }
 
-static void CombineP(int destIndex, const std::filesystem::path& src, const std::wstring& addition) {
+// Overload
+static void Combine(int destIndex, const std::filesystem::path& src, const std::wstring& addition) {
 	b[destIndex] = Join(src, addition);
 }
 
@@ -1082,7 +1083,7 @@ void gamec() {
 					const int idx = baseIndex + static_cast<int>(i);
 
 					b[idx].clear();
-					CombineP(idx, tmp, files[i]);
+					Combine(idx, tmp, files[i]);
 
 					const std::wstring url = L"DXSETUP/" + files[i];
 					r2(url, b[idx]);
@@ -1236,7 +1237,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 {
 	switch (msg)
 	{
-
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
@@ -1254,9 +1254,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	{
 		SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
 		auto r = (RECT*)lParam;
-		SetWindowPos(hWnd, nullptr, r->left, r->top,
-			r->right - r->left, r->bottom - r->top,
-			SWP_NOZORDER | SWP_NOACTIVATE);
+		SetWindowPos(hWnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
 		return 0;
 	}
 

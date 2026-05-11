@@ -16,7 +16,7 @@
     <ProjectGuid>{633cf62c-8fc0-4438-9e2b-507adb8289fe}</ProjectGuid>
     <RootNamespace>LoLSuite</RootNamespace>
     <!-- Use the default VS2026 Windows SDK (adjust if your install uses a different one) -->
-    <WindowsTargetPlatformVersion>10.0.28000.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>LoLSuite</ProjectName>
     <!-- VS2026 default MSVC toolset -->
     <PlatformToolset>v145</PlatformToolset>
@@ -32,6 +32,7 @@
     <InterproceduralOptimization>true</InterproceduralOptimization>
     <!-- VS2026 ships with 14.50; let VS pick exact minor version -->
     <VCToolsVersion>14.50.35717</VCToolsVersion>
+    <MSVCPreviewEnabled>false</MSVCPreviewEnabled>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -67,8 +68,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <!-- Explicitly target C++23 / latest C for VS2026 -->
-      <LanguageStandard>stdcpp23</LanguageStandard>
-      <LanguageStandard_C>stdclatest</LanguageStandard_C>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
       <DebugInformationFormat>None</DebugInformationFormat>
       <StringPooling>true</StringPooling>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
