@@ -31,8 +31,8 @@
     <SpectreMitigation>Spectre</SpectreMitigation>
     <InterproceduralOptimization>true</InterproceduralOptimization>
     <!-- VS2026 ships with 14.50; let VS pick exact minor version -->
-    <VCToolsVersion>14.50.35717</VCToolsVersion>
-    <MSVCPreviewEnabled>false</MSVCPreviewEnabled>
+    <VCToolsVersion>14.51.36231</VCToolsVersion>
+    <MSVCPreviewEnabled>true</MSVCPreviewEnabled>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -41,7 +41,8 @@
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
     <SpectreMitigation>Spectre</SpectreMitigation>
     <InterproceduralOptimization>true</InterproceduralOptimization>
-    <VCToolsVersion>14.50.35717</VCToolsVersion>
+    <VCToolsVersion>14.51.36231</VCToolsVersion>
+    <MSVCPreviewEnabled>true</MSVCPreviewEnabled>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
