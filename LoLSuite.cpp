@@ -18,7 +18,7 @@ static std::atomic<bool> g_isBusy = false;
 int cb_index = 0;
 std::vector<std::wstring> b(159);
 HWND hWnd, patch, restore, listbox;
-HFONT uiFont = CreateFont(-MulDiv(16, GetDpiForWindow(hWnd), 96), 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI Variable");
+HFONT font = CreateFont(-MulDiv(16, GetDpiForWindow(hWnd), 96), 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI Variable");
 
 static std::wstring Join(const std::wstring& base, const std::wstring& addition) {
 	return (std::filesystem::path(base) / addition).wstring();
@@ -32,12 +32,11 @@ static void Combine(int destIndex, int srcIndex, const std::wstring& addition) {
 	b[destIndex] = Join(b[srcIndex], addition);
 }
 
-// Overload
 static void Combine(int destIndex, const std::filesystem::path& src, const std::wstring& addition) {
 	b[destIndex] = Join(src, addition);
 }
 
-bool isElevated()
+bool checkUAC()
 {
 	HANDLE token = nullptr;
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
@@ -52,11 +51,9 @@ bool isElevated()
 	return ok && elevation.TokenIsElevated;
 }
 
-bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
+bool cloudflare(const std::wstring& url, const std::filesystem::path& outputPath, bool skipR2 = false)
 {
-	const std::wstring fullUrl = skipR2
-		? url
-		: (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
+	const std::wstring fullUrl = skipR2 ? url : (L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + url);
 
 	URL_COMPONENTSW uc{};
 	wchar_t host[256]{};
@@ -147,7 +144,7 @@ bool r2(const std::wstring& url, const std::filesystem::path& outputPath, bool s
 }
 
 
-bool shortcut()
+bool gen_shortcut()
 {
 	PWSTR desktopPath = nullptr;
 	HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktopPath);
@@ -176,7 +173,7 @@ bool shortcut()
 	return SUCCEEDED(hr);
 }
 
-bool pkill(const std::wstring& processName)
+bool term(const std::wstring& processName)
 {
 	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (snapshot == INVALID_HANDLE_VALUE)
@@ -416,7 +413,7 @@ static void service(const std::wstring& serviceName, bool start, bool restart = 
 	}
 }
 
-bool dx()
+bool checkdx()
 {
 	wchar_t* sysroot = nullptr;
 	size_t len = 0;
@@ -435,7 +432,7 @@ bool dx()
 	return exists(L"d3dx9_43.dll") && exists(L"D3DCompiler_43.dll") && exists(L"XAudio2_7.dll");
 }
 
-bool Refresh()
+bool desktop_clear()
 {
 	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
@@ -492,13 +489,8 @@ bool Refresh()
 	PWSTR programData = nullptr;
 	if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramData, 0, nullptr, &programData)))
 	{
-		std::filesystem::path wer = std::filesystem::path(programData)
-			/ L"Microsoft"
-			/ L"Windows"
-			/ L"WER";
-
+		std::filesystem::path wer = std::filesystem::path(programData) / L"Microsoft" / L"Windows" / L"WER";
 		CoTaskMemFree(programData);
-
 		rm(wer.c_str());
 	}
 
@@ -546,11 +538,10 @@ struct GameConfig {
 	std::vector<std::wstring> preAppends;
 };
 
-void Game(const GameConfig& config, bool restore)
+void Patch(const GameConfig& config, bool restore)
 {
 	folder(config.baseDir);
 
-	// Unblock
 	for (auto it = std::filesystem::recursive_directory_iterator(config.baseDir, std::filesystem::directory_options::skip_permission_denied, ec); it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
 	{
 		if (ec) {
@@ -572,7 +563,7 @@ void Game(const GameConfig& config, bool restore)
 		Append(0, s);
 
 	for (const auto& proc : config.processes)
-		pkill(proc);
+		term(proc);
 
 	for (const auto& [dst, src, rel] : config.cpaths)
 		Combine(dst, src, rel);
@@ -592,7 +583,7 @@ void Game(const GameConfig& config, bool restore)
 		const std::wstring& url = restore ? op.restorePath : op.patchPath;
 		const std::filesystem::path outputPath = b[op.dstId];
 
-		r2(url, outputPath);
+		cloudflare(url, outputPath);
 	}
 
 	runEx(config.steamUrl, { .wait = false, .params = L"" });
@@ -824,18 +815,18 @@ static const std::unordered_map<std::wstring, GameConfig(*)()> gameMap = {
 static void manage(const std::wstring& game, bool restore) {
 	auto it = gameMap.find(game);
 	if (it != gameMap.end()) {
-		Game(it->second(), restore);
+		Patch(it->second(), restore);
 	}
 
 	if (game == L"minecraft")
 	{
-		if (!isElevated())
+		if (!checkUAC())
 		{
 			MessageBox(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
 		else
 		{
-			for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) pkill(proc);
+			for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe", L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe" }) term(proc);
 			char appdata[MAX_PATH + 1];
 			size_t size = 0;
 			getenv_s(&size, appdata, MAX_PATH + 1, "APPDATA");
@@ -883,20 +874,20 @@ static void manage(const std::wstring& game, bool restore) {
 			out.close();
 			for (const auto& proc : { L"Minecraft.exe", L"MinecraftLauncher.exe", L"java.exe", L"javaw.exe", L"MinecraftServer.exe", L"Minecraft.Windows.exe" })
 			{
-				pkill(proc);
+				term(proc);
 			}
 			runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
 		}
 	}
 }
 void gamec() {
-		if (!isElevated())
+		if (!checkUAC())
 		{
 			MessageBox(hWnd, L"Re-Run LoLSuite as admin", L"LoLSuite", MB_OK);
 		}
 		else
 		{
-			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) pkill(proc);
+			for (const auto& proc : { L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe", L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe", L"Battle.net.exe", L"steam.exe", L"Origin.exe", L"EADesktop.exe", L"EpicGamesLauncher.exe" }) term(proc);
 			std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
 			ec.clear();
 			std::filesystem::create_directory(tmp, ec);
@@ -908,14 +899,14 @@ void gamec() {
 
 					const auto file = tmp / (is64 ? L"vcredist_x64.exe" : L"vcredist_x86.exe");
 
-					r2(url, file.c_str(), true);
+					cloudflare(url, file.c_str(), true);
 					runEx(file.c_str(), { .wait = true, .checkExit = true, .hidden = true, .params = L"/Q" });
 				};
 
 			vc(false);
 			if (x64()) vc(true);
 
-			if (!dx() && x64())
+			if (!checkdx() && x64())
 			{
 				constexpr int baseIndex = 0;
 				const std::vector<std::wstring> files = {
@@ -1086,7 +1077,7 @@ void gamec() {
 					Combine(idx, tmp, files[i]);
 
 					const std::wstring url = L"DXSETUP/" + files[i];
-					r2(url, b[idx]);
+					cloudflare(url, b[idx]);
 				}
 
 				bool allFilesPresent = std::all_of(files.begin(), files.end(),
@@ -1180,7 +1171,7 @@ void gamec() {
 			runEx(L"rundll32", {.wait = true, .checkExit = true, .hidden = true, .params = L"InetCpl.cpl,ClearMyTracksByProcess 4351"
 				});
 			for (const auto& proc : { L"firefox.exe", L"msedge.exe", L"chrome.exe", L"iexplore.exe", L"opera.exe" }) {
-				pkill(proc);
+				term(proc);
 			}
 
 			auto CacheClear = [](const std::filesystem::path& path) {
@@ -1237,6 +1228,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 {
 	switch (msg)
 	{
+
 	case WM_CTLCOLORLISTBOX:
 	case WM_CTLCOLORSTATIC:
 	case WM_CTLCOLOREDIT:
@@ -1252,7 +1244,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 	case WM_DPICHANGED:
 	{
-		SendMessage(hWnd, WM_SETFONT, (WPARAM)uiFont, TRUE);
+		SendMessage(hWnd, WM_SETFONT, (WPARAM)font, TRUE);
 		auto r = (RECT*)lParam;
 		SetWindowPos(hWnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
 		return 0;
@@ -1356,16 +1348,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 struct Layout {
 	static constexpr int W = 300;
 	static constexpr int H = 130;
-
 	static constexpr int TOP = 20;
 	static constexpr int CH = 30;
-
 	static constexpr int BW = 63;
 	static constexpr int BS = 15;
-
 	static constexpr int xPatch = BS;
 	static constexpr int xRestore = xPatch + BW + BS;
-
 	static constexpr int comboLeft = BS;
 	static constexpr int comboTop = TOP + CH + 10;
 	static constexpr int comboWidth = W - BS * 2;
@@ -1412,11 +1400,11 @@ int WINAPI wWinMain(
 	);
 
 	CoInitialize(nullptr);
-	shortcut();
+	gen_shortcut();
 	CoUninitialize();
 
 	for (HWND h : {patch, restore, listbox})
-		SendMessage(h, WM_SETFONT, (WPARAM)uiFont, TRUE);
+		SendMessage(h, WM_SETFONT, (WPARAM)font, TRUE);
 
 	for (LPCWSTR s : {
 		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft", L"Café Clients"
@@ -1428,7 +1416,7 @@ int WINAPI wWinMain(
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
-	Refresh();
+	desktop_clear();
 
 	MSG msg;
 
