@@ -1,6 +1,4 @@
 ﻿#define WIN32_LEAN_AND_MEAN
-#define _UNICODE
-#define UNICODE
 #include <windows.h>
 #include <VersionHelpers.h>
 #include <winhttp.h>
@@ -328,60 +326,91 @@ bool shell(const std::vector<std::wstring>& commands)
 
 std::wstring folder(const std::wstring& pathLabel)
 {
-	const std::filesystem::path iniPath = std::filesystem::current_path() / L"LoLSuite.ini";
+	const std::filesystem::path iniPath =
+		std::filesystem::current_path() / L"LoLSuite.ini";
+
+	// --- 1. Read saved path from INI ---
 	wchar_t saved[MAX_PATH + 1]{};
-	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", saved, MAX_PATH, iniPath.c_str());
+	GetPrivateProfileStringW(
+		pathLabel.c_str(), L"path", L"",
+		saved, MAX_PATH, iniPath.c_str()
+	);
 
 	if (saved[0] != L'\0') {
-		b[0] = saved;
-		return b[0];
+		return saved; // already saved
 	}
 
-	MessageBox(nullptr,(L"Select: " + pathLabel).c_str(), L"LoLSuite", MB_OK);
+	// --- 2. Ask user to select folder ---
+	MessageBoxW(nullptr,
+		(L"Select: " + pathLabel).c_str(),
+		L"LoLSuite",
+		MB_OK);
 
-	b[0].clear();
 	std::wstring selected;
 
+	// --- 3. Initialize COM ---
 	HRESULT hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-	if (FAILED(hrInit))
-		return L"";
+	if (FAILED(hrInit)) {
+		return L""; // COM failed
+	}
 
-	{
-		IFileDialog* dlg = nullptr;
-		if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr,
-			CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dlg))))
-		{
-			DWORD opts = 0;
-			dlg->GetOptions(&opts);
-			dlg->SetOptions(opts | FOS_PICKFOLDERS);
+	IFileDialog* dlg = nullptr;
 
-			if (SUCCEEDED(dlg->Show(nullptr))) {
-				IShellItem* item = nullptr;
-				if (SUCCEEDED(dlg->GetResult(&item))) {
-					PWSTR psz = nullptr;
-					if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &psz))) {
-						selected = psz;
-						CoTaskMemFree(psz);
-					}
-					item->Release();
-				}
-			}
+	// --- 4. Create dialog ---
+	HRESULT hr = CoCreateInstance(
+		CLSID_FileOpenDialog, nullptr,
+		CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(&dlg)
+	);
+
+	if (SUCCEEDED(hr)) {
+
+		// Enable folder picker
+		DWORD opts = 0;
+		dlg->GetOptions(&opts);
+		dlg->SetOptions(opts | FOS_PICKFOLDERS);
+
+		// --- 5. Show dialog ---
+		hr = dlg->Show(nullptr);
+
+		if (hr == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
+			// User pressed Cancel
 			dlg->Release();
+			CoUninitialize();
+			return L"";
 		}
+
+		if (SUCCEEDED(hr)) {
+			// --- 6. Retrieve selected folder ---
+			IShellItem* item = nullptr;
+			if (SUCCEEDED(dlg->GetResult(&item))) {
+
+				PWSTR psz = nullptr;
+				if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &psz))) {
+					selected = psz;
+					CoTaskMemFree(psz);
+				}
+
+				item->Release();
+			}
+		}
+
+		dlg->Release();
 	}
 
 	CoUninitialize();
 
+	// --- 7. Save selected path ---
 	if (!selected.empty()) {
-		b[0] = selected;
 		WritePrivateProfileStringW(
 			pathLabel.c_str(), L"path",
-			b[0].c_str(), iniPath.c_str()
+			selected.c_str(), iniPath.c_str()
 		);
 	}
 
-	return b[0];
+	return selected;
 }
+
 
 static void service(const std::wstring& serviceName, bool start, bool restart = false) {
 	struct ServiceHandleDeleter {
@@ -542,8 +571,10 @@ struct GameConfig {
 
 void Patch(const GameConfig& config, bool restore)
 {
-	folder(config.baseDir);
-
+	std::wstring p = folder(config.baseDir);
+	if (p.empty()) {
+		exit(0);
+	}
 	for (auto it = std::filesystem::recursive_directory_iterator(config.baseDir, std::filesystem::directory_options::skip_permission_denied, ec); it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
 	{
 		if (ec) {
