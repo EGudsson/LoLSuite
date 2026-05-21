@@ -103,8 +103,8 @@
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
-      <EnableUAC>true</EnableUAC>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
+      <EnableUAC>false</EnableUAC>
     </Link>
   </ItemDefinitionGroup>
   <!-- x64-specific override -->

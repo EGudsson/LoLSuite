@@ -1,4 +1,6 @@
 ﻿#define WIN32_LEAN_AND_MEAN
+#define _UNICODE
+#define UNICODE
 #include <windows.h>
 #include <VersionHelpers.h>
 #include <winhttp.h>
@@ -1407,7 +1409,7 @@ int WINAPI wWinMain(
 		SendMessage(h, WM_SETFONT, (WPARAM)font, TRUE);
 
 	for (LPCWSTR s : {
-		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft", L"Café Clients"
+		L"League of Legends", L"DOTA 2", L"SMITE 2", L"Metal Gear Solid Delta : Snake Eater", L"Borderlands 4", L"The Elder Scrolls IV: Oblivion Remastered", L"SILENT HILL f", L"The Outer Worlds 2", L"MineCraft", L"Café Clients"
 	})
 		SendMessage(listbox, CB_ADDSTRING, 0, (LPARAM)s);
 
