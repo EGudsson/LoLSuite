@@ -897,12 +897,12 @@ void gamec() {
 			if (fileExists(p)) removeAll(p);
 			};
 
-		kill({
+		for (const auto& proc : {
 			L"cmd.exe", L"DXSETUP.exe", L"pwsh.exe", L"powershell.exe",
 			L"WindowsTerminal.exe", L"OpenConsole.exe", L"wt.exe",
 			L"Battle.net.exe", L"steam.exe", L"Origin.exe",
 			L"EADesktop.exe", L"EpicGamesLauncher.exe"
-			});
+			}) pkill(proc);
 
 		std::filesystem::path tmp = std::filesystem::current_path() / "tmp";
 		ec.clear();
