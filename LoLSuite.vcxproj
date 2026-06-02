@@ -103,7 +103,7 @@
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
       <OutputFile>$(OutDir)$(TargetName)64$(TargetExt)</OutputFile>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <EnableUAC>false</EnableUAC>
     </Link>
   </ItemDefinitionGroup>
