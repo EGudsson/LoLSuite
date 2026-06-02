@@ -101,7 +101,7 @@
       <AdditionalDependencies>winhttp.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
-      <OutputFile>$(OutDir)$(TargetName)64$(TargetExt)</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <EnableUAC>false</EnableUAC>
