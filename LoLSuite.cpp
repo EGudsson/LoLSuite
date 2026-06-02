@@ -12,6 +12,12 @@
 #include <fstream>
 #include <thread>
 #include <array>
+#include <vector>
+#include <string>
+#include <string_view>
+#include <optional>
+#include <sstream>
+#include <locale>
 #include "resource.h"
 
 std::error_code ec;
@@ -119,11 +125,7 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 	};
 
 	HttpHandle session{
-		WinHttpOpen(L"LoLSuite/1.0",
-					WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-					WINHTTP_NO_PROXY_NAME,
-					WINHTTP_NO_PROXY_BYPASS,
-					0)
+		WinHttpOpen(L"LoLSuite/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0)
 	};
 	if (!session.h)
 		return false;
@@ -144,15 +146,7 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 		return false;
 
 	HttpHandle request{
-		WinHttpOpenRequest(connect.h,
-						   L"GET",
-						   path,
-						   nullptr,
-						   WINHTTP_NO_REFERER,
-						   WINHTTP_DEFAULT_ACCEPT_TYPES,
-						   (uc.nScheme == INTERNET_SCHEME_HTTPS)
-							   ? WINHTTP_FLAG_SECURE
-							   : 0)
+		WinHttpOpenRequest(connect.h, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0)
 	};
 	if (!request.h)
 		return false;
@@ -221,7 +215,6 @@ bool pkill(std::wstring_view processName)
 
 	return true;
 }
-
 
 bool x64()
 {
@@ -337,7 +330,7 @@ std::wstring folder(const std::wstring& pathLabel)
 {
 	const std::filesystem::path iniPath = std::filesystem::current_path() / L"LoLSuite.ini";
 	wchar_t saved[MAX_PATH + 1]{};
-	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", saved, MAX_PATH, iniPath.c_str());
+	GetPrivateProfileString(pathLabel.c_str(), L"path", L"", saved, MAX_PATH + 1, iniPath.c_str());
 
 	if (saved[0] != L'\0') {
 		b[0] = saved;
@@ -466,10 +459,10 @@ bool Refresh()
 
 	wchar_t buf[MAX_PATH + 1]{};
 
-	if (GetTempPathW(MAX_PATH, buf))
+	if (GetTempPathW(MAX_PATH + 1, buf))
 		rm(buf);
 
-	if (GetWindowsDirectoryW(buf, MAX_PATH)) {
+	if (GetWindowsDirectoryW(buf, MAX_PATH + 1)) {
 		std::filesystem::path win(buf);
 		rm(win / L"Temp");
 		rm(win / L"Prefetch");
@@ -1218,28 +1211,17 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		if (dis && dis->CtlType == ODT_BUTTON)
 		{
 			dis->itemState &= ~ODS_FOCUS;
-
 			GdiPen pen(PS_SOLID, 1, RGB(200, 220, 255));
 			auto oldPen = SelectObject(dis->hDC, pen.get());
 			auto oldBrush = SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
-
-			RoundRect(dis->hDC,
-				dis->rcItem.left, dis->rcItem.top,
-				dis->rcItem.right, dis->rcItem.bottom,
-				10, 10);
-
+			RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top, dis->rcItem.right, dis->rcItem.bottom, 10, 10);
 			SelectObject(dis->hDC, oldBrush);
 			SelectObject(dis->hDC, oldPen);
-
 			SetTextColor(dis->hDC, RGB(20, 40, 80));
 			SetBkMode(dis->hDC, TRANSPARENT);
-
 			wchar_t text[256]{};
 			GetWindowTextW(dis->hwndItem, text, 256);
-
-			DrawTextW(dis->hDC, text, -1, &dis->rcItem,
-				DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
+			DrawTextW(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 			return TRUE;
 		}
 		return FALSE;
@@ -1354,7 +1336,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 	);
 
 	create_font();
-
 
 	patch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
