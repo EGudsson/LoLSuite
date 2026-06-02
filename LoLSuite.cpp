@@ -11,14 +11,52 @@
 #include <unordered_map>
 #include <fstream>
 #include <thread>
+#include <array>
 #include "resource.h"
 
 std::error_code ec;
-static std::atomic<bool> busy = false;
+std::atomic<bool> busy{ false };
 int cb_index = 0;
-std::vector<std::wstring> b(159);
-HWND hWnd, patch, restore, listbox;
-HFONT font = CreateFont(-MulDiv(16, GetDpiForWindow(hWnd), 96), 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Segoe UI Variable");
+std::array<std::wstring, 159> b{};
+HWND hWnd = nullptr;
+HWND patch = nullptr;
+HWND restore = nullptr;
+HWND listbox = nullptr;
+HFONT font = nullptr;
+
+void create_font()
+{
+	if (!hWnd)
+		return;
+
+	const int dpi = GetDpiForWindow(hWnd);
+	const int height = -MulDiv(16, dpi, 96);
+
+	font = CreateFontW(
+		height,
+		0,
+		0,
+		0,
+		FW_MEDIUM,
+		FALSE,
+		FALSE,
+		FALSE,
+		DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS,
+		CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY,
+		VARIABLE_PITCH | FF_SWISS,
+		L"Segoe UI Variable"
+	);
+}
+
+void destroy_font()
+{
+	if (font) {
+		DeleteObject(font);
+		font = nullptr;
+	}
+}
 
 std::wstring Join(std::wstring_view base, std::wstring_view addition)
 {
@@ -59,7 +97,6 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 {
 	const std::wstring fullUrl = skipR2 ? std::wstring(url) : L"https://pub-769810f4ffd448b68be4a51316b03c57.r2.dev/" + std::wstring(url);
 
-	// --- Parse URL ---
 	URL_COMPONENTSW uc{};
 	wchar_t host[256]{};
 	wchar_t path[2048]{};
@@ -76,7 +113,6 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 	if (path[0] == L'\0')
 		wcscpy_s(path, L"/");
 
-	// --- RAII wrapper for WinHTTP handles ---
 	struct HttpHandle {
 		HINTERNET h{};
 		~HttpHandle() { if (h) WinHttpCloseHandle(h); }
@@ -121,7 +157,6 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 	if (!request.h)
 		return false;
 
-	// --- Send request ---
 	if (!WinHttpSendRequest(request.h,
 		WINHTTP_NO_ADDITIONAL_HEADERS,
 		0, nullptr, 0, 0, 0))
@@ -130,7 +165,6 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 	if (!WinHttpReceiveResponse(request.h, nullptr))
 		return false;
 
-	// --- Write response to file ---
 	std::ofstream out(outputPath, std::ios::binary | std::ios::trunc);
 	if (!out)
 		return false;
@@ -146,7 +180,6 @@ bool r2(std::wstring_view url, const std::filesystem::path& outputPath, bool ski
 
 	out.close();
 
-	// --- Remove Zone.Identifier ADS ---
 	ec.clear();
 	std::filesystem::remove(outputPath.wstring() + L":Zone.Identifier", ec);
 
@@ -220,7 +253,6 @@ bool x64()
 	return false;
 }
 
-
 struct RunOptions {
 	bool wait = true;
 	bool checkExit = false;
@@ -241,7 +273,7 @@ private:
 	HANDLE h_;
 };
 
-bool runEx(std::wstring_view file, const RunOptions& opt)
+bool run(std::wstring_view file, const RunOptions& opt)
 {
 	DWORD mask = 0;
 	if (opt.wait)
@@ -365,6 +397,7 @@ void service(const std::wstring& serviceName, bool start, bool restart = false)
 			if (h) CloseServiceHandle(h);
 		}
 	};
+
 	using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
 
 	ServiceHandle scm(OpenSCManagerW(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
@@ -516,8 +549,8 @@ struct GameConfig {
 void Game(const GameConfig& config, bool restore)
 {
 	folder(config.baseDir);
-
-	// Unblock
+    
+	// Unblock GameDir
 	for (auto it = std::filesystem::recursive_directory_iterator(config.baseDir, std::filesystem::directory_options::skip_permission_denied, ec); it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
 	{
 		if (ec) {
@@ -562,7 +595,7 @@ void Game(const GameConfig& config, bool restore)
 		r2(url, outputPath, false);
 	}
 
-	runEx(config.steamUrl, { .wait = false, .params = L"" });
+	run(config.steamUrl, { .wait = false, .params = L"" });
 }
 
 static GameConfig LoL() {
@@ -818,7 +851,7 @@ static void manage(const std::wstring& game, bool restore) {
 			cmds.push_back(L"winget install --id Oracle.JDK.26 --accept-package-agreements");
 			cmds.push_back(L"winget install --id Mojang.MinecraftLauncher");
 			shell(cmds);
-			runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
+			run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
 			while (!std::filesystem::exists(configPath)) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 			std::wifstream in(configPath);
 			in.imbue(std::locale("en_US.UTF-8"));
@@ -852,7 +885,7 @@ static void manage(const std::wstring& game, bool restore) {
 			{
 				pkill(proc);
 			}
-			runEx(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
+			run(L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe", { .wait = false, .params = L"" });
 		}
 	}
 }
@@ -883,7 +916,7 @@ void gamec() {
 			};
 
 		auto runSilent = [&](std::wstring_view exe, std::wstring_view params) {
-			runEx(std::wstring(exe), { .wait = true, .checkExit = true, .hidden = true, .params = params.data() });
+			run(std::wstring(exe), { .wait = true, .checkExit = true, .hidden = true, .params = params.data() });
 			};
 
 		auto getFolder = [&](int csidl) -> std::optional<std::filesystem::path> {
@@ -1000,7 +1033,7 @@ void gamec() {
 			r2(url, b[idx], false);
 		}
 
-		runEx(b[baseIndex + 63], { .wait = true, .params = L"/silent" });
+		run(b[baseIndex + 63], { .wait = true, .params = L"/silent" });
 		removeAll(tmp);
 
 		if (HMODULE dns = LoadLibraryW(L"dnsapi.dll")) {
@@ -1108,12 +1141,12 @@ void gamec() {
 		std::vector<std::wstring> uninstall, install;
 
 		for (auto& app : apps) {
-			uninstall.push_back(L"winget uninstall " + app + L" --purge");
+			uninstall.push_back(L"winget uninstall --id " + app + L" --purge");
 
 			if (app == L"ElectronicArts.Origin")
-				continue; // Do not reinstall Origin
+				continue;
 
-			install.push_back(L"winget install " + app + L" --accept-package-agreements --accept-source-agreements");
+			install.push_back(L"winget install --id " + app + L" --accept-package-agreements --accept-source-agreements");
 		}
 
 		shell(uninstall);
@@ -1271,6 +1304,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		return 0;
 
 	case WM_DESTROY:
+		destroy_font();
 		PostQuitMessage(0);
 		return 0;
 	}
@@ -1281,16 +1315,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 struct Layout {
 	static constexpr int W = 300;
 	static constexpr int H = 130;
-
 	static constexpr int TOP = 20;
 	static constexpr int CH = 30;
-
 	static constexpr int BW = 63;
 	static constexpr int BS = 15;
-
 	static constexpr int xPatch = BS;
 	static constexpr int xRestore = xPatch + BW + BS;
-
 	static constexpr int comboLeft = BS;
 	static constexpr int comboTop = TOP + CH + 10;
 	static constexpr int comboWidth = W - BS * 2;
@@ -1315,7 +1345,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 
 	RegisterClassExW(&wcx);
 
-	hWnd = CreateWindowExW(
+	hWnd = CreateWindowEx(
 		0, L"LoLSuite", L"LoLSuite",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT,
@@ -1323,21 +1353,24 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 		nullptr, nullptr, hInstance, nullptr
 	);
 
-	patch = CreateWindowExW(
+	create_font();
+
+
+	patch = CreateWindowEx(
 		0, L"BUTTON", L"Patch",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_DEFPUSHBUTTON,
 		Layout::xPatch, Layout::TOP, Layout::BW, Layout::CH,
 		hWnd, HMENU(1), hInstance, nullptr
 	);
 
-	restore = CreateWindowExW(
+	restore = CreateWindowEx(
 		0, L"BUTTON", L"Restore",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | BS_PUSHBUTTON,
 		Layout::xRestore, Layout::TOP, Layout::BW, Layout::CH,
 		hWnd, HMENU(2), hInstance, nullptr
 	);
 
-	listbox = CreateWindowExW(
+	listbox = CreateWindowEx(
 		0, WC_COMBOBOX, nullptr,
 		CBS_DROPDOWN | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
 		Layout::comboLeft, Layout::comboTop, Layout::comboWidth, 210,
