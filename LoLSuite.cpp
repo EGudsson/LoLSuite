@@ -20,7 +20,6 @@
 #include <locale>
 #include "resource.h"
 
-// Globals
 std::error_code ec;
 std::atomic<bool> busy{ false };
 int cb_index = 0;
@@ -28,7 +27,6 @@ std::array<std::wstring, 159> b{};
 HWND hWnd, patch, restore, listbox = nullptr;
 HFONT font = nullptr;
 
-// Path Concatenation
 std::wstring PJ(std::wstring_view base, std::wstring_view addition)
 {
 	return (std::filesystem::path(base) / addition).wstring();
@@ -49,7 +47,6 @@ void PC(int destIndex, const std::filesystem::path& src, std::wstring_view addit
 	b[destIndex] = PJ(src.wstring(), addition);
 }
 
-// Check for admin rights
 bool UAC()
 {
 	HANDLE token = nullptr;
@@ -154,7 +151,7 @@ bool pkill_name(std::wstring_view processName)
 
 	PROCESSENTRY32W entry{ .dwSize = sizeof(entry) };
 
-	if (!Process32FirstW(snapshot, &entry))
+	if (!Process32First(snapshot, &entry))
 		return false;
 
 	do {
@@ -172,7 +169,7 @@ bool pkill_name(std::wstring_view processName)
 			if (GetExitCodeProcess(proc, &exitCode) && exitCode == STILL_ACTIVE)
 				TerminateProcess(proc, 0);
 		}
-	} while (Process32NextW(snapshot, &entry));
+	} while (Process32Next(snapshot, &entry));
 
 	return true;
 }
@@ -182,7 +179,7 @@ bool x64()
 	using FnIsWow64Process2 = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
 	using FnIsWow64Process = BOOL(WINAPI*)(HANDLE, PBOOL);
 
-	HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+	HMODULE k32 = GetModuleHandle(L"kernel32.dll");
 
 	auto fn2 = reinterpret_cast<FnIsWow64Process2>(GetProcAddress(k32, "IsWow64Process2"));
 
@@ -241,7 +238,7 @@ bool run(std::wstring_view file, const RunOptions& opt)
 		.hInstApp = nullptr
 	};
 
-	if (!ShellExecuteExW(&sei))
+	if (!ShellExecuteEx(&sei))
 		return false;
 
 	if (!opt.wait || !sei.hProcess)
@@ -252,9 +249,9 @@ bool run(std::wstring_view file, const RunOptions& opt)
 
 	MSG msg{};
 	while (WaitForSingleObject(process.get(), 50) == WAIT_TIMEOUT) {
-		while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
-			DispatchMessageW(&msg);
+			DispatchMessage(&msg);
 		}
 	}
 
@@ -331,7 +328,7 @@ std::wstring browser(const std::wstring& pathLabel)
 
 	if (!selected.empty()) {
 		b[0] = selected;
-		WritePrivateProfileStringW(
+		WritePrivateProfileString(
 			pathLabel.c_str(), L"path",
 			b[0].c_str(), iniPath.c_str()
 		);
@@ -350,10 +347,10 @@ void service(const std::wstring& serviceName, bool start, bool restart = false)
 
 	using ServiceHandle = std::unique_ptr<std::remove_pointer_t<SC_HANDLE>, ServiceHandleDeleter>;
 
-	ServiceHandle scm(OpenSCManagerW(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
+	ServiceHandle scm(OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
 	if (!scm) return;
 
-	ServiceHandle svc(OpenServiceW(scm.get(), serviceName.c_str(), SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS));
+	ServiceHandle svc(OpenService(scm.get(), serviceName.c_str(), SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS));
 	if (!svc) return;
 
 	auto stopService = [](SC_HANDLE h) {
@@ -370,10 +367,10 @@ void service(const std::wstring& serviceName, bool start, bool restart = false)
 
 	if (restart) {
 		stopService(svc.get());
-		StartServiceW(svc.get(), 0, nullptr);
+		StartService(svc.get(), 0, nullptr);
 	}
 	else if (start) {
-		StartServiceW(svc.get(), 0, nullptr);
+		StartService(svc.get(), 0, nullptr);
 	}
 	else {
 		stopService(svc.get());
@@ -382,7 +379,7 @@ void service(const std::wstring& serviceName, bool start, bool restart = false)
 
 bool Refresh()
 {
-	SHEmptyRecycleBinW(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
+	SHEmptyRecycleBin(nullptr, nullptr, SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND);
 
 	if (OpenClipboard(nullptr)) {
 		EmptyClipboard();
@@ -411,10 +408,10 @@ bool Refresh()
 
 	wchar_t buf[MAX_PATH + 1]{};
 
-	if (GetTempPathW(MAX_PATH + 1, buf))
+	if (GetTempPath(MAX_PATH + 1, buf))
 		rm(buf);
 
-	if (GetWindowsDirectoryW(buf, MAX_PATH + 1)) {
+	if (GetWindowsDirectory(buf, MAX_PATH + 1)) {
 		std::filesystem::path win(buf);
 		rm(win / L"Temp");
 		rm(win / L"Prefetch");
@@ -444,7 +441,7 @@ bool Refresh()
 	}
 
 	wchar_t lad[MAX_PATH + 1]{};
-	if (SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, lad) == S_OK) {
+	if (SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, lad) == S_OK) {
 		std::filesystem::path ladPath(lad);
 
 		rmf(ladPath / L"IconCache.db");
@@ -459,11 +456,11 @@ bool Refresh()
 
 		for (auto pat : patterns) {
 			WIN32_FIND_DATAW fd{};
-			HANDLE h = FindFirstFileW((explorer / pat).c_str(), &fd);
+			HANDLE h = FindFirstFile((explorer / pat).c_str(), &fd);
 			if (h != INVALID_HANDLE_VALUE) {
 				do {
 					rmf(explorer / fd.cFileName);
-				} while (FindNextFileW(h, &fd));
+				} while (FindNextFile(h, &fd));
 				FindClose(h);
 			}
 		}
@@ -494,7 +491,6 @@ void Game(const GameConfig& config, bool restore)
 {
 	browser(config.baseDir);
     
-	// Unblock GameDir
 	for (auto it = std::filesystem::recursive_directory_iterator(config.baseDir, std::filesystem::directory_options::skip_permission_denied, ec); it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
 	{
 		if (ec) {
@@ -779,14 +775,12 @@ void manage(const std::wstring& game, bool restore) {
 			return;
 		}
 
-		// --- Kill all Minecraft-related processes ---
 		constexpr std::wstring_view processes[] = {
 			L"Minecraft.exe", L"MinecraftLauncher.exe", L"javaw.exe",
 			L"MinecraftServer.exe", L"java.exe", L"Minecraft.Windows.exe"
 		};
 		for (auto p : processes) pkill_name(p);
 
-		// --- Remove .minecraft directory ---
 		wchar_t* appdata = nullptr;
 		size_t size = 0;
 		_wdupenv_s(&appdata, &size, L"APPDATA");
@@ -795,10 +789,8 @@ void manage(const std::wstring& game, bool restore) {
 
 		std::filesystem::remove_all(configPath);
 
-		// Path to launcher_profiles.json
 		auto profilePath = configPath / "launcher_profiles.json";
 
-		// --- Build winget commands ---
 		std::vector<std::wstring> cmds = {
 			L"winget uninstall --id Mojang.MinecraftLauncher --purge"
 		};
@@ -816,21 +808,17 @@ void manage(const std::wstring& game, bool restore) {
 
 		shell(cmds);
 
-		// --- Launch Minecraft Launcher ---
 		constexpr auto launcherPath = L"C:\\Program Files (x86)\\Minecraft Launcher\\MinecraftLauncher.exe";
 		run(launcherPath, { .wait = false });
 
-		// --- Wait for launcher_profiles.json to appear ---
 		while (!std::filesystem::exists(profilePath))
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-		// --- Read config ---
 		std::wifstream in(profilePath);
 		in.imbue(std::locale("en_US.UTF-8"));
 		std::wstring config((std::istreambuf_iterator<wchar_t>(in)), {});
 		in.close();
 
-		// --- Remove old javaDir + skipJreVersionCheck ---
 		std::wstring updated;
 		{
 			std::wstringstream ss(config);
@@ -845,7 +833,6 @@ void manage(const std::wstring& game, bool restore) {
 			}
 		}
 
-		// --- Insert new javaDir + skipJreVersionCheck ---
 		const std::wstring jdkPath = L"C:\\\\Program Files\\\\Java\\\\jdk-26.0.1\\\\bin\\\\javaw.exe";
 
 		for (auto type : { L"\"type\" : \"latest-release\"", L"\"type\" : \"latest-snapshot\"" })
@@ -853,11 +840,9 @@ void manage(const std::wstring& game, bool restore) {
 			size_t pos = updated.find(type);
 			if (pos == std::wstring::npos) continue;
 
-			// Insert skipJreVersionCheck
 			if (auto start = updated.rfind(L'\n', pos); start != std::wstring::npos)
 				updated.insert(start + 1, L"      \"skipJreVersionCheck\" : true,\n");
 
-			// Insert javaDir 4 lines above
 			size_t javaPos = pos;
 			for (int i = 0; i < 4 && javaPos != std::wstring::npos; ++i)
 				javaPos = updated.rfind(L'\n', javaPos - 1);
@@ -866,15 +851,12 @@ void manage(const std::wstring& game, bool restore) {
 				updated.insert(javaPos + 1, L"      \"javaDir\" : \"" + jdkPath + L"\",\n");
 		}
 
-		// --- Write updated config ---
 		std::wofstream out(profilePath);
 		out.imbue(std::locale("en_US.UTF-8"));
 		out << updated;
 
-		// --- Kill processes again (launcher restarted itself) ---
 		for (auto p : processes) pkill_name(p);
 
-		// --- Relaunch ---
 		run(launcherPath, { .wait = false });
 	}
 }
@@ -910,7 +892,7 @@ void tweaks() {
 
 		auto getFolder = [&](int csidl) -> std::optional<std::filesystem::path> {
 			wchar_t buf[MAX_PATH + 1]{};
-			return SUCCEEDED(SHGetFolderPathW(nullptr, csidl, nullptr, 0, buf))
+			return SUCCEEDED(SHGetFolderPath(nullptr, csidl, nullptr, 0, buf))
 				? std::optional<std::filesystem::path>(buf)
 				: std::nullopt;
 			};
@@ -1025,7 +1007,7 @@ void tweaks() {
 		run(b[baseIndex + 63], { .wait = true, .params = L"/silent" });
 		removeAll(tmp);
 
-		if (HMODULE dns = LoadLibraryW(L"dnsapi.dll")) {
+		if (HMODULE dns = LoadLibrary(L"dnsapi.dll")) {
 			using Fn = DWORD(WINAPI*)(PCWSTR);
 			if (auto flush = reinterpret_cast<Fn>(
 				GetProcAddress(dns, "DnsFlushResolverCacheEntry_W")))
@@ -1094,20 +1076,20 @@ void tweaks() {
 			service(s, true);
 
 		shell({
-	L"w32tm /resync",
-	L"powercfg -restoredefaultschemes",
-	L"powercfg /h off",
-	L"wsreset -i",
-	L"Add-WindowsCapability -Online -Name NetFx3~~~~",
-	L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
-	L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
-	L"Get-AppxPackage -AllUsers | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppxManifest.xml\" }",
-	L"winget source update",
-	L"netsh winsock reset",
-	L"netsh interface ip delete arpcache",
-	L"netsh winhttp reset proxy",
-	L"Get-EventLog -LogName * | ForEach-Object { Clear-EventLog -LogName $_.Log }",
-	L"ie4uinit -ClearIconCache"});
+			L"w32tm /resync",
+			L"powercfg -restoredefaultschemes",
+			L"powercfg /h off",
+			L"wsreset -i",
+			L"Add-WindowsCapability -Online -Name NetFx3~~~~",
+			L"Update-MpSignature -UpdateSource MicrosoftUpdateServer",
+			L"Get-AppxPackage -Name Microsoft.DesktopAppInstaller | Foreach { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\" }",
+			L"Get-AppxPackage -AllUsers | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppxManifest.xml\" }",
+			L"winget source update",
+			L"netsh winsock reset",
+			L"netsh interface ip delete arpcache",
+			L"netsh winhttp reset proxy",
+			L"Get-EventLog -LogName * | ForEach-Object { Clear-EventLog -LogName $_.Log }",
+			L"ie4uinit -ClearIconCache"});
 
 		std::vector<std::wstring> apps = {
 			L"Microsoft.DirectX",
@@ -1138,7 +1120,6 @@ void tweaks() {
 			install.push_back(L"winget install --id " + app + L" --accept-package-agreements --accept-source-agreements");
 		}
 
-		// Reinstall : Uninstall -> Install
 		shell(uninstall);
 		shell(install);
 
@@ -1190,7 +1171,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	case WM_DPICHANGED:
 	{
-		SendMessageW(hWnd, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+		SendMessage(hWnd, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
 		auto* r = reinterpret_cast<RECT*>(lParam);
 		SetWindowPos(hWnd, nullptr,
@@ -1216,8 +1197,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			SetTextColor(dis->hDC, RGB(20, 40, 80));
 			SetBkMode(dis->hDC, TRANSPARENT);
 			wchar_t text[256]{};
-			GetWindowTextW(dis->hwndItem, text, 256);
-			DrawTextW(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			GetWindowText(dis->hwndItem, text, 256);
+			DrawText(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 			return TRUE;
 		}
 		return FALSE;
@@ -1228,25 +1209,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		const UINT id = LOWORD(wParam);
 		const UINT code = HIWORD(wParam);
 
-		// -----------------------------
-		// LISTBOX selection changed
-		// -----------------------------
 		if (id == 3 && code == LBN_SELCHANGE)
 		{
-			int index = (int)SendMessageW(listbox, LB_GETCURSEL, 0, 0);
+			int index = (int)SendMessage(listbox, LB_GETCURSEL, 0, 0);
 
 			wchar_t buffer[256];
-			SendMessageW(listbox, LB_GETTEXT, index, (LPARAM)buffer);
+			SendMessage(listbox, LB_GETTEXT, index, (LPARAM)buffer);
 
-			// buffer now contains the selected game name
-			// store index for later use
 			cb_index = index;
 			return 0;
 		}
 
-		// -----------------------------
-		// Patch (1) or Restore (2)
-		// -----------------------------
 		if (id == 1 || id == 2)
 		{
 			if (busy.exchange(true))
@@ -1256,7 +1229,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			EnableWindow(restore, FALSE);
 			EnableWindow(listbox, FALSE);
 
-			const int index = cb_index;   // now from listbox
+			const int index = cb_index;
 			const bool rest = (id == 2);
 
 			std::thread([index, rest]() {
@@ -1269,21 +1242,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				if (index >= 0 && index < (int)gameKeys.size())
 					manage(gameKeys[index], rest);
 
-				if (index == 9)   // Café Clients
+				if (index == 9)
 					tweaks();
 
 				}).detach();
 
-			PostMessageW(hWnd, WM_APP + 1, 0, 0);
+			PostMessage(hWnd, WM_APP + 1, 0, 0);
 			return 0;
 		}
 
-		// -----------------------------
-		// Exit menu
-		// -----------------------------
 		if (id == IDM_EXIT)
 		{
-			SendMessageW(hWnd, WM_CLOSE, 0, 0);
+			SendMessage(hWnd, WM_CLOSE, 0, 0);
 			return 0;
 		}
 
@@ -1309,7 +1279,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		return 0;
 	}
 
-	return DefWindowProcW(hWnd, msg, wParam, lParam);
+	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
 struct Layout {
@@ -1335,15 +1305,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 		.cbClsExtra = 0,
 		.cbWndExtra = 0,
 		.hInstance = hInstance,
-		.hIcon = LoadIconW(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
-		.hCursor = LoadCursorW(nullptr, IDC_ARROW),
+		.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON)),
+		.hCursor = LoadCursor(nullptr, IDC_ARROW),
 		.hbrBackground = reinterpret_cast<HBRUSH>(NULL_BRUSH),
 		.lpszMenuName = nullptr,
 		.lpszClassName = L"LoLSuite",
 		.hIconSm = nullptr
 	};
 
-	RegisterClassExW(&wcx);
+	RegisterClassEx(&wcx);
 
 	hWnd = CreateWindowEx(
 		0, L"LoLSuite", L"LoLSuite",
@@ -1353,7 +1323,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 		nullptr, nullptr, hInstance, nullptr
 	);
 
-	font = CreateFontW(
+	font = CreateFont(
 		-MulDiv(16, GetDpiForWindow(hWnd), 96),
 		0,
 		0,
@@ -1385,9 +1355,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 	);
 
 	for (HWND h : { patch, restore, listbox })
-		SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+		SendMessage(h, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-	// Replace the combobox with a LISTBOX
 	listbox = CreateWindowEx(
 		WS_EX_CLIENTEDGE,
 		L"LISTBOX",
@@ -1396,17 +1365,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 		Layout::comboLeft,
 		Layout::comboTop,
 		Layout::comboWidth,
-		220,                     // height of the listbox
+		220,
 		hWnd,
 		HMENU(3),
 		hInstance,
 		nullptr
 	);
 
-	// Apply font
-	SendMessageW(listbox, WM_SETFONT, (WPARAM)font, TRUE);
+	SendMessage(listbox, WM_SETFONT, (WPARAM)font, TRUE);
 
-	// Populate the listbox
 	for (auto* s : {
 		L"League of Legends", L"DOTA 2", L"SMITE 2",
 		L"Metal Gear Solid Delta", L"Borderlands 4",
@@ -1415,21 +1382,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 		L"MineCraft", L"Café Clients"
 		})
 	{
-		SendMessageW(listbox, LB_ADDSTRING, 0, (LPARAM)s);
+		SendMessage(listbox, LB_ADDSTRING, 0, (LPARAM)s);
 	}
 
-	// Select first item
-	SendMessageW(listbox, LB_SETCURSEL, 0, 0);
-
+	SendMessage(listbox, LB_SETCURSEL, 0, 0);
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
 	Refresh();
 
 	MSG msg{};
-	while (GetMessageW(&msg, nullptr, 0, 0)) {
+	while (GetMessage(&msg, nullptr, 0, 0)) {
 		TranslateMessage(&msg);
-		DispatchMessageW(&msg);
+		DispatchMessage(&msg);
 	}
 
 	return static_cast<int>(msg.wParam);
