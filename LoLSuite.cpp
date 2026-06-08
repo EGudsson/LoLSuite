@@ -1421,8 +1421,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nShowCmd)
 	// Select first item
 	SendMessageW(listbox, LB_SETCURSEL, 0, 0);
 
-
-
 	ShowWindow(hWnd, nShowCmd);
 	UpdateWindow(hWnd);
 
